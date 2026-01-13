@@ -1,0 +1,57 @@
+
+> ai-bookmark-manager@0.0.1 check /Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+
+Loading svelte-check in workspace: /Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager
+Getting Svelte diagnostics...
+
+/Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager/src/routes/api/auth/[...all]/+server.ts:4:16
+Error: Property 'GET' does not exist on type '(event: { request: Request; }) => Response | Promise<Response>'. 
+
+export const { GET, POST } = toSvelteKitHandler(auth);
+
+/Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager/src/routes/api/auth/[...all]/+server.ts:4:21
+Error: Property 'POST' does not exist on type '(event: { request: Request; }) => Response | Promise<Response>'. 
+
+export const { GET, POST } = toSvelteKitHandler(auth);
+
+/Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager/src/lib/components/ReminderPicker.svelte:21:9
+Warn: This reference only captures the initial value of `existingDate`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+    let value = $state<DateValue | undefined>(
+        existingDate
+            ? parseDate(existingDate.toISOString().split("T")[0])
+
+/Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager/src/lib/components/ReminderPicker.svelte:22:25
+Warn: This reference only captures the initial value of `existingDate`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+        existingDate
+            ? parseDate(existingDate.toISOString().split("T")[0])
+            : undefined,
+
+/Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager/src/lib/components/ReminderPicker.svelte:26:9
+Warn: This reference only captures the initial value of `existingDate`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+    let time = $state(
+        existingDate
+            ? existingDate.toLocaleTimeString([], {
+
+/Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager/src/lib/components/ReminderPicker.svelte:27:15
+Warn: This reference only captures the initial value of `existingDate`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+        existingDate
+            ? existingDate.toLocaleTimeString([], {
+                  hour: "2-digit",
+
+/Users/chimezie/.gemini/antigravity/scratch/ai-bookmark-manager/src/lib/components/ReminderPicker.svelte:209:21
+Warn: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-medium text-muted-foreground"
+                        >Time</label
+                    >
+                    <div class="relative">
+
+====================================
+svelte-check found 2 errors and 5 warnings in 2 files
+ ELIFECYCLE  Command failed with exit code 1.

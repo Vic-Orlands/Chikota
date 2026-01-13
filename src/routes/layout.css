@@ -1,0 +1,394 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================
+   CHIKỌTA - Premium Bookmark Manager
+   ============================================ */
+
+/* Space Grotesk Font */
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+/* Animation Timing Functions */
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* Base sizing - small, elegant typography */
+  --text-xs: 0.6875rem;   /* 11px */
+  --text-sm: 0.75rem;     /* 12px */
+  --text-base: 0.8125rem; /* 13px */
+  --text-lg: 0.875rem;    /* 14px */
+  --text-xl: 1rem;        /* 16px */
+  --text-2xl: 1.25rem;    /* 20px */
+  --text-3xl: 1.5rem;     /* 24px */
+}
+
+/* ============================================
+   LIGHT THEME (Default)
+   ============================================ */
+:root {
+  --radius: 0.625rem;
+  
+  /* Neutral tones */
+  --background: oklch(0.985 0.002 247);
+  --foreground: oklch(0.145 0.022 265);
+  
+  /* Cards & surfaces */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0.022 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0.022 265);
+  
+  /* Primary - Emerald accent */
+  --primary: oklch(0.696 0.17 162.48);
+  --primary-foreground: oklch(1 0 0);
+  
+  /* Secondary */
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  
+  /* Muted */
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.45 0.03 260);
+  
+  /* Accent - Violet */
+  --accent: oklch(0.627 0.265 303.9);
+  --accent-foreground: oklch(1 0 0);
+  
+  /* Destructive */
+  --destructive: oklch(0.577 0.245 27.325);
+  
+  /* Borders & inputs */
+  --border: oklch(0.91 0.008 260);
+  --input: oklch(0.91 0.008 260);
+  --ring: oklch(0.696 0.17 162.48);
+  
+  /* Category colors */
+  --category-emerald: oklch(0.696 0.17 162.48);
+  --category-violet: oklch(0.627 0.265 303.9);
+  --category-amber: oklch(0.828 0.189 84.429);
+  --category-rose: oklch(0.645 0.246 16.439);
+  --category-sky: oklch(0.685 0.169 237.323);
+}
+
+/* ============================================
+   DARK THEME
+   ============================================ */
+.dark {
+  --background: oklch(0.115 0.025 265);
+  --foreground: oklch(0.965 0.005 250);
+  
+  --card: oklch(0.155 0.028 265);
+  --card-foreground: oklch(0.965 0.005 250);
+  --popover: oklch(0.155 0.028 265);
+  --popover-foreground: oklch(0.965 0.005 250);
+  
+  /* Primary - Emerald */
+  --primary: oklch(0.696 0.17 162.48);
+  --primary-foreground: oklch(0.115 0.025 265);
+  
+  --secondary: oklch(0.22 0.032 265);
+  --secondary-foreground: oklch(0.965 0.005 250);
+  
+  --muted: oklch(0.22 0.032 265);
+  --muted-foreground: oklch(0.6 0.025 260);
+  
+  /* Accent - Violet */
+  --accent: oklch(0.627 0.265 303.9);
+  --accent-foreground: oklch(1 0 0);
+  
+  --destructive: oklch(0.704 0.191 22.216);
+  
+  --border: oklch(0.25 0.02 265);
+  --input: oklch(0.25 0.02 265);
+  --ring: oklch(0.696 0.17 162.48);
+}
+
+/* ============================================
+   THEME MAPPING
+   ============================================ */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Theme transition overlay */
+@keyframes theme-reveal {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes theme-reveal-reverse {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Card lift animation */
+@keyframes card-lift {
+  0% {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Button click pulse */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Stagger fade in */
+@keyframes stagger-fade {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Spinner rotation */
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Slide indicator */
+@keyframes slide-indicator {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* Subtle float */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Reveal Animations for Theme Switch */
+@keyframes revealDown {
+  0% {
+    clip-path: inset(0 0 100% 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes revealUp {
+  0% {
+    clip-path: inset(100% 0 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Scale bounce on click */
+@keyframes click-scale {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Theme transition overlay element */
+/* Theme transition overlay element */
+.theme-transition-overlay {
+  animation: theme-reveal 0.6s var(--ease-smooth) forwards;
+  background-color: var(--background); /* Ensure solid color */
+}
+
+.theme-transition-overlay.reverse {
+  animation: theme-reveal-reverse 0.6s var(--ease-smooth) forwards;
+  background-color: var(--background); /* Ensure solid color */
+}
+
+/* Card hover lift */
+.card-hover-lift {
+  transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-smooth);
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-3px);
+}
+
+/* Button click effect */
+.btn-click-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-click-effect:active {
+  animation: click-scale 0.15s var(--ease-smooth);
+}
+
+/* Stagger children animation */
+.stagger-children > * {
+  animation: stagger-fade 0.4s var(--ease-smooth) backwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 400ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 450ms; }
+.stagger-children > *:nth-child(n+11) { animation-delay: 500ms; }
+
+/* Spinner */
+.spinner {
+  animation: spinner 0.8s linear infinite;
+}
+
+/* Focus ring */
+.focus-ring {
+  transition: box-shadow 0.2s var(--ease-smooth);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+
+/* Smooth input transitions */
+input, textarea, select {
+  transition: border-color 0.2s var(--ease-smooth), 
+              background-color 0.2s var(--ease-smooth),
+              box-shadow 0.2s var(--ease-smooth);
+}
+
+/* Grid background pattern */
+/* Grid background pattern */
+.grid-bg {
+  background-size: 50px 50px;
+  background-image: url("data:image/svg+xml,%3Csvg width='50' height='50' viewBox='0 0 50 50' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23888888' fill-opacity='0.15' fill-rule='evenodd'%3E%3Cpath d='M11 0l5 20 5 20H0l5-20L11 0z' transform='matrix(0 0 0 0 0 0)'/%3E%3Cpath d='M1 0h2v50H1zM0 1h50v2H0z'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.6;
+  z-index: -1;
+}
+
+.dark .grid-bg {
+  opacity: 0.3;
+  background-image: url("data:image/svg+xml,%3Csvg width='50' height='50' viewBox='0 0 50 50' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.15' fill-rule='evenodd'%3E%3Cpath d='M1 0h2v50H1zM0 1h50v2H0z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Selection styling */
+  ::selection {
+    background-color: oklch(0.696 0.17 162.48 / 0.2);
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+}
