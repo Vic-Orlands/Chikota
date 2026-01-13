@@ -32,6 +32,9 @@ export const PUT = async ({ request, params }) => {
     if (body.reminderAt !== undefined) {
         updateData.reminderAt = body.reminderAt ? new Date(body.reminderAt) : null;
     }
+    if (body.reminderEmail !== undefined) {
+        updateData.reminderEmail = body.reminderEmail || null;
+    }
     // Add other fields as needed (title, etc.) - user primarily asked for reminder updates in UI context
 
     updateData.updatedAt = new Date();

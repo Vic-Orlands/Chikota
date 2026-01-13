@@ -15,13 +15,19 @@
     let {
         onSave,
         existingDate,
+        existingEmail,
         trigger,
+        bookmarkTitle,
+        bookmarkUrl,
     }: {
-        onSave: (date: Date) => void;
+        onSave: (date: Date, email?: string) => void;
         existingDate?: Date;
+        existingEmail?: string;
         trigger?: import("svelte").Snippet<
             [{ props: Record<string, unknown> }]
         >;
+        bookmarkTitle?: string;
+        bookmarkUrl?: string;
     } = $props();
 
     let value = $derived<DateValue | undefined>(
@@ -38,13 +44,14 @@
               })
             : "09:00",
     );
+    let email = $state(existingEmail || "");
     let isOpen = $state(false);
 
     const df = new DateFormatter("en-US", {
         dateStyle: "medium",
     });
 
-    function handleSave() {
+    async function handleSave() {
         if (!value) {
             toast.error("Please select a date");
             return;
@@ -56,7 +63,50 @@
         const finalDate = new Date(dateStr);
         finalDate.setHours(hours, minutes);
 
-        onSave(finalDate);
+        onSave(finalDate, email.trim() || undefined);
+
+        // Schedule browser notification
+        const now = new Date();
+        const delay = finalDate.getTime() - now.getTime();
+        if (delay > 0) {
+            setTimeout(() => {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Bookmark Reminder', {
+                        body: `Don't forget to check your bookmark!`,
+                        icon: '/favicon.ico'
+                    });
+                } else if ('Notification' in window && Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            new Notification('Bookmark Reminder', {
+                                body: `Don't forget to check your bookmark!`,
+                                icon: '/favicon.ico'
+                            });
+                        }
+                    });
+                }
+            }, delay);
+        }
+
+        // For email, send via API with Resend
+        if (email.trim()) {
+            try {
+                await fetch('/api/send-reminder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: email.trim(),
+                        title: bookmarkTitle || 'Bookmark Reminder',
+                        url: bookmarkUrl || '',
+                        reminderAt: finalDate.toISOString(),
+                    }),
+                });
+            } catch (err) {
+                console.error('Failed to schedule email reminder:', err);
+                toast.error('Failed to schedule email reminder');
+            }
+        }
+
         isOpen = false;
         toast.success("Reminder set!");
     }
@@ -231,6 +281,22 @@
                             class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
                         />
                     </div>
+                </div>
+
+                <!-- Email Input -->
+                <div class="flex flex-col gap-1.5">
+                    <label
+                        for="reminder-email"
+                        class="text-xs font-medium text-muted-foreground"
+                        >Email (optional)</label
+                    >
+                    <input
+                        id="reminder-email"
+                        type="email"
+                        bind:value={email}
+                        placeholder="your@email.com"
+                        class="w-full flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    />
                 </div>
 
                 <div class="pt-2">

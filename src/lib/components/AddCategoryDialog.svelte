@@ -33,7 +33,8 @@
 
     let open = false;
     let name = "";
-    let selectedColor: "emerald" | "violet" | "amber" | "rose" | "sky" = "emerald";
+    let selectedColor: "emerald" | "violet" | "amber" | "rose" | "sky" =
+        "emerald";
     let selectedIcon = "Hash";
 
     const colors = ["emerald", "violet", "amber", "rose", "sky"] as const;
@@ -44,7 +45,6 @@
         rose: "oklch(0.645 0.246 16.439)",
         sky: "oklch(0.685 0.169 237.323)",
     };
-
 
     const icons = [
         { name: "User", component: User },
@@ -131,7 +131,8 @@
                     {#each colors as color}
                         <button
                             type="button"
-                            class="w-8 h-8 rounded-full border-2 transition-all {selectedColor === color
+                            class="w-8 h-8 rounded-full border-2 transition-all {selectedColor ===
+                            color
                                 ? 'border-foreground scale-110'
                                 : 'border-border hover:border-foreground/50'}"
                             style="background-color: {colorValues[color]};"
@@ -146,7 +147,11 @@
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
                     <Label>Icon</Label>
-                    <Button variant="outline" size="sm" onclick={selectRandomIcon}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={selectRandomIcon}
+                    >
                         Random
                     </Button>
                 </div>
@@ -154,12 +159,13 @@
                     {#each icons as { name, component: Icon }}
                         <button
                             type="button"
-                            class="p-2 rounded-lg border transition-all {selectedIcon === name
+                            class="p-2 flex justify-center rounded-lg border transition-all {selectedIcon ===
+                            name
                                 ? 'border-primary bg-primary/10'
                                 : 'border-border hover:border-primary/50'}"
                             onclick={() => (selectedIcon = name)}
                         >
-                            <Icon class="h-5 w-5" />
+                            <Icon class="h-4 w-4" />
                         </button>
                     {/each}
                 </div>
@@ -172,10 +178,14 @@
                     <div class="flex items-center gap-2 mt-1">
                         <Badge
                             variant="secondary"
-                            class="{categoryColorClasses[selectedColor].bg} {categoryColorClasses[selectedColor].text} border-transparent text-sm font-medium px-3 py-1"
+                            class="{categoryColorClasses[selectedColor]
+                                .bg} {categoryColorClasses[selectedColor]
+                                .text} border-transparent text-sm font-medium px-3 py-1"
                         >
                             {#if selectedIcon}
-                                {@const Icon = icons.find(i => i.name === selectedIcon)?.component || Hash}
+                                {@const Icon =
+                                    icons.find((i) => i.name === selectedIcon)
+                                        ?.component || Hash}
                                 <Icon class="h-4 w-4 mr-1" />
                             {/if}
                             {name.trim()}
@@ -189,9 +199,7 @@
             <Button variant="outline" onclick={() => (open = false)}>
                 Cancel
             </Button>
-            <Button onclick={handleSubmit}>
-                Add Category
-            </Button>
+            <Button onclick={handleSubmit}>Add Category</Button>
         </Dialog.Footer>
     </Dialog.Content>
 </Dialog.Root>

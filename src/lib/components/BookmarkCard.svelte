@@ -117,9 +117,13 @@
 
             <ReminderPicker
                 existingDate={bookmark.reminderAt}
-                onSave={(date: Date) => {
+                existingEmail={bookmark.reminderEmail}
+                bookmarkTitle={bookmark.title}
+                bookmarkUrl={bookmark.url}
+                onSave={(date: Date, email?: string) => {
                     bookmarks.updateBookmark(bookmark.id, {
                         reminderAt: date,
+                        reminderEmail: email,
                     });
                     toast.success(
                         "Reminder set for " + format(date, "MMM d, h:mm a"),

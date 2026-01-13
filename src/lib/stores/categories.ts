@@ -1,21 +1,44 @@
 import { writable } from 'svelte/store';
-import type { Category } from '$lib/types';
+import type { Category, Bookmark } from '$lib/types';
+import { bookmarks } from './bookmarks';
 
 const defaultCategories: Category[] = [
+    { id: 'all', name: 'All', color: 'emerald', icon: 'Globe' },
     { id: '1', name: 'Personal', color: 'violet', icon: 'User' },
     { id: '2', name: 'Work', color: 'sky', icon: 'Briefcase' },
     { id: '3', name: 'Inspiration', color: 'rose', icon: 'Sparkles' },
     { id: '4', name: 'Reading List', color: 'amber', icon: 'BookOpen' }
 ];
 
-export const categories = writable<Category[]>(defaultCategories);
-export const activeCategoryId = writable<string>('1');
+// Helper function to create a store that syncs with localStorage
+function createPersistedStore<T>(key: string, initialValue: T) {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+    const initial = stored ? JSON.parse(stored) : initialValue;
+
+    const store = writable<T>(initial);
+
+    if (typeof window !== 'undefined') {
+        store.subscribe(value => {
+            localStorage.setItem(key, JSON.stringify(value));
+        });
+    }
+
+    return store;
+}
+
+export const categories = createPersistedStore<Category[]>('categories', defaultCategories);
+export const activeCategoryId = createPersistedStore<string>('activeCategoryId', 'all');
 
 export function addCategory(category: Omit<Category, 'id'>) {
     categories.update(cats => [
         ...cats,
         { ...category, id: Date.now().toString() }
     ]);
+}
+
+export function deleteCategory(id: string) {
+    if (id === 'all') return; // Cannot delete "All"
+    categories.update(cats => cats.filter(c => c.id !== id));
 }
 
 // Color mapping for CSS variables

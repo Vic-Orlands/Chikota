@@ -35,6 +35,7 @@ export const POST = async ({ request }) => {
         description: body.description || "",
         categoryId: body.categoryId || null,
         reminderAt: body.reminderAt ? new Date(body.reminderAt) : null,
+        reminderEmail: body.reminderEmail || null,
         createdAt: new Date(),
         updatedAt: new Date(),
     };

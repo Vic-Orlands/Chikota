@@ -55,6 +55,7 @@ export const bookmarks = pgTable("bookmarks", {
     imageUrl: text("imageUrl"),
     categoryId: text("categoryId"),
     reminderAt: timestamp("reminderAt"),
+    reminderEmail: text("reminderEmail"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     updatedAt: timestamp("updatedAt").notNull().defaultNow()
 });

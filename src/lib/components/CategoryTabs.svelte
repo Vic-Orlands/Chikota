@@ -3,6 +3,7 @@
         categories,
         activeCategoryId,
         categoryColorClasses,
+        deleteCategory,
     } from "$lib/stores/categories";
     import { bookmarkCounts } from "$lib/stores/bookmarks";
     import {
@@ -12,6 +13,22 @@
         Sparkles,
         BookOpen,
         Hash,
+        Palette,
+        Folder,
+        Star,
+        Heart,
+        Zap,
+        Home,
+        Code,
+        Music,
+        Camera,
+        Coffee,
+        Gamepad2,
+        Globe,
+        Mail,
+        Phone,
+        Settings,
+        Trash2,
     } from "lucide-svelte";
     import type { ComponentType } from "svelte";
     import { cn } from "$lib/utils";
@@ -22,6 +39,22 @@
         Briefcase: Briefcase,
         Sparkles: Sparkles,
         BookOpen: BookOpen,
+        Hash: Hash,
+        Palette: Palette,
+        Folder: Folder,
+        Star: Star,
+        Heart: Heart,
+        Zap: Zap,
+        Home: Home,
+        Code: Code,
+        Music: Music,
+        Camera: Camera,
+        Coffee: Coffee,
+        Gamepad2: Gamepad2,
+        Globe: Globe,
+        Mail: Mail,
+        Phone: Phone,
+        Settings: Settings,
     };
 </script>
 
@@ -38,7 +71,7 @@
             <button
                 onclick={() => activeCategoryId.set(category.id)}
                 class={cn(
-                    "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium",
+                    "group relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium",
                     "transition-all duration-300 ease-out whitespace-nowrap",
                     "focus-ring btn-click-effect",
                     isActive
@@ -59,6 +92,20 @@
                     >
                         {count}
                     </span>
+                {/if}
+
+                <!-- Delete button for non-All categories -->
+                {#if category.id !== 'all'}
+                    <button
+                        onclick={(e) => {
+                            e.stopPropagation();
+                            deleteCategory(category.id);
+                        }}
+                        class="ml-1 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+                        title="Delete category"
+                    >
+                        <Trash2 class="w-3 h-3" />
+                    </button>
                 {/if}
 
                 <!-- Active indicator dot -->

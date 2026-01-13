@@ -19,6 +19,7 @@ function createBookmarkStore() {
                         createdAt: new Date(b.createdAt),
                         updatedAt: b.updatedAt ? new Date(b.updatedAt) : undefined,
                         reminderAt: b.reminderAt ? new Date(b.reminderAt) : undefined,
+                        reminderEmail: b.reminderEmail || undefined,
                     })));
                 }
             } catch (err) {
@@ -64,7 +65,8 @@ function createBookmarkStore() {
                 console.error(err);
             }
         },
-        cancelAllReminders: () => update(n => n.map(b => ({ ...b, reminderAt: undefined })))
+        cancelAllReminders: () => update(n => n.map(b => ({ ...b, reminderAt: undefined }))),
+        update: (fn: (bookmarks: Bookmark[]) => Bookmark[]) => update(fn)
     };
 }
 
@@ -72,7 +74,7 @@ export const bookmarks = createBookmarkStore();
 
 export const filteredBookmarks = derived(
     [bookmarks, activeCategoryId],
-    ([$bookmarks, $activeCategoryId]) => $bookmarks.filter(b => b.categoryId === $activeCategoryId)
+    ([$bookmarks, $activeCategoryId]) => $activeCategoryId === 'all' ? $bookmarks : $bookmarks.filter(b => b.categoryId === $activeCategoryId)
 );
 
 // Get bookmarks count per category

@@ -13,6 +13,7 @@ export interface Bookmark {
     categoryId: string;
     createdAt: Date;
     reminderAt?: Date;
+    reminderEmail?: string;
 }
 
 export interface Category {
