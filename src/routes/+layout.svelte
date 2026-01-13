@@ -35,7 +35,7 @@
     <div
         class="min-h-screen w-full bg-background text-foreground font-sans antialiased selection:bg-primary/20 {isDark
             ? 'dark'
-            : ''}"
+            : 'light'}"
         style="color-scheme: {isDark ? 'dark' : 'light'}"
     >
         <!-- Grid Background Pattern -->
