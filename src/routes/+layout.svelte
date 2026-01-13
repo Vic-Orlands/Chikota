@@ -5,9 +5,8 @@
     import SettingsModal from "$lib/components/SettingsModal.svelte";
     import RemindersModal from "$lib/components/RemindersModal.svelte";
     import { Toaster } from "$lib/components/ui/sonner";
-    import { page } from "$app/stores";
     import { authClient } from "$lib/auth-client";
-    import { LogIn, LogOut, User as UserIcon } from "lucide-svelte";
+    import { LogOut, User as UserIcon } from "lucide-svelte";
     import { Button } from "$lib/components/ui/button";
 
     import { onMount } from "svelte";
@@ -32,15 +31,13 @@
 
 {#snippet appShell(isDark: boolean)}
     <div
-        class="min-h-screen w-full bg-background text-foreground font-sans antialiased selection:bg-primary/20 {isDark
+        class="relative min-h-screen w-full bg-background text-foreground font-sans antialiased selection:bg-primary/20 {isDark
             ? 'dark'
             : 'light'}"
         style="color-scheme: {isDark ? 'dark' : 'light'}"
     >
         <!-- Grid Background Pattern -->
-        <div
-            class="pointer-events-none fixed inset-0 -z-10 grid-bg opacity-[0.6] dark:opacity-[0.3]"
-        ></div>
+        <div class="pointer-events-none absolute inset-0 grid-bg"></div>
 
         <header
             class="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm transition-colors duration-0"
@@ -110,7 +107,7 @@
             </div>
         </header>
 
-        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main class="relative z-10 max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {@render children()}
         </main>
 
