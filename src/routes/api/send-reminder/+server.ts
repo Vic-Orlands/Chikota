@@ -18,7 +18,7 @@ export const POST = async ({ request }) => {
 
     try {
         const { data, error } = await resend.emails.send({
-            from: "Chikota <reminders@chikota.app>", // Update with your domain
+            from: "Chikota <contact@mezie.dev>",
             to: [email],
             subject: `Reminder: ${title}`,
             html: `
