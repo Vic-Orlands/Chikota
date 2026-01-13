@@ -4,11 +4,11 @@
     import BookmarkGrid from "$lib/components/BookmarkGrid.svelte";
     import AddBookmarkDialog from "$lib/components/AddBookmarkDialog.svelte";
     import CategoryTabs from "$lib/components/CategoryTabs.svelte";
-    import LandingPage from "$lib/components/LandingPage.svelte"; // Import LandingPage
+    import LandingPage from "$lib/components/LandingPage.svelte";
     import { Input } from "$lib/components/ui/input";
     import { Search, Filter, LayoutGrid, List } from "lucide-svelte";
     import { Button } from "$lib/components/ui/button";
-    import { authClient } from "$lib/auth-client"; // Import authClient
+    import { authClient } from "$lib/auth-client";
 
     let currentCategory = $derived(
         $categories.find((c) => c.id === $activeCategoryId),
@@ -44,7 +44,6 @@
     <LandingPage />
 {:else}
     <div class="space-y-6">
-        <!-- Page Header -->
         <header class="space-y-4">
             <div
                 class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
@@ -62,11 +61,9 @@
                 <AddBookmarkDialog />
             </div>
 
-            <!-- Category Tabs -->
             <CategoryTabs />
         </header>
 
-        <!-- Search & Controls Bar -->
         <div class="flex items-center gap-3">
             <div class="relative flex-1 group">
                 <Search
@@ -107,11 +104,9 @@
             </div>
         </div>
 
-        <!-- Bookmarks Display -->
         {#if displayedBookmarks.length > 0}
             <BookmarkGrid bookmarks={displayedBookmarks} {viewMode} />
         {:else}
-            <!-- Empty State -->
             <div
                 class="flex flex-col items-center justify-center py-16 text-center"
             >

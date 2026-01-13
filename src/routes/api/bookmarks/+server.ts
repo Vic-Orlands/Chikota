@@ -1,7 +1,7 @@
 import { json } from "@sveltejs/kit";
 import { db } from "$lib/db";
 import { bookmarks } from "$lib/db/schema";
-import { auth } from "$lib/auth"; // We need to check session
+import { auth } from "$lib/auth";
 import { eq, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 

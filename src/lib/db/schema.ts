@@ -64,7 +64,7 @@ export const categories = pgTable("categories", {
     id: text("id").primaryKey(),
     userId: text("userId").notNull().references(() => user.id),
     name: text("name").notNull(),
-    color: text("color").notNull(), // 'emerald' | 'violet' etc.
+    color: text("color").notNull(),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     updatedAt: timestamp("updatedAt").notNull().defaultNow()
 });

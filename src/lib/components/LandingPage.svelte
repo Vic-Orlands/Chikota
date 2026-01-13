@@ -1,17 +1,16 @@
 <script>
-     import { Button } from "$lib/components/ui/button";
-     import Logo from "$lib/components/Logo.svelte";
-     import { authClient } from "$lib/auth-client";
-     import { ArrowRight, Sparkles } from "lucide-svelte";
-     import { cn } from "$lib/utils";
-     import DefaultFavicon from "$lib/components/icons/DefaultFavicon.svelte";
+    import { Button } from "$lib/components/ui/button";
+    import Logo from "$lib/components/Logo.svelte";
+    import { authClient } from "$lib/auth-client";
+    import { ArrowRight, Sparkles } from "lucide-svelte";
+    import { cn } from "$lib/utils";
+    import DefaultFavicon from "$lib/components/icons/DefaultFavicon.svelte";
 </script>
 
 <div
     class="relative min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center p-6 sm:p-12 overflow-hidden"
 >
     <div class="relative z-10 max-w-4xl w-full text-center space-y-12">
-        <!-- Hero Section -->
         <div class="space-y-6">
             <h1
                 class="text-4xl sm:text-6xl font-bold tracking-tight text-foreground"
@@ -43,13 +42,9 @@
                     />
                     Sign in with Google
                 </Button>
-                <!-- <Button variant="ghost" size="lg" class="h-12 px-8 text-base">
-                    View Demo <ArrowRight class="ml-2 w-4 h-4" />
-                </Button> -->
             </div>
         </div>
 
-        <!-- Features Grid -->
         <div
             class="grid grid-cols-1 sm:grid-cols-2 mt-16 gap-4 sm:gap-6 text-left"
         >
@@ -90,10 +85,5 @@
                 </p>
             </div>
         </div>
-
-        <!-- Visual Preview Tease -->
-        <!-- <div class="relative mt-20 p-4 border border-border rounded-xl bg-background shadow-2xl skew-y-2 opacity-50 blur-[1px] select-none pointer-events-none transform scale-95 origin-top">
-            <div class="h-64 rounded-lg bg-secondary/20"></div>
-        </div> -->
     </div>
 </div>

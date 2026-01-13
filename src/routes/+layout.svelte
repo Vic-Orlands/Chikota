@@ -30,7 +30,6 @@
     <link rel="icon" href="/favicon.svg" />
 </svelte:head>
 
-<!-- Reusable App Shell Snippet -->
 {#snippet appShell(isDark: boolean)}
     <div
         class="min-h-screen w-full bg-background text-foreground font-sans antialiased selection:bg-primary/20 {isDark
@@ -43,18 +42,15 @@
             class="pointer-events-none fixed inset-0 -z-10 grid-bg opacity-[0.6] dark:opacity-[0.3]"
         ></div>
 
-        <!-- Sticky Header -->
         <header
             class="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm transition-colors duration-0"
         >
             <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex h-14 items-center justify-between gap-4">
-                    <!-- Logo -->
                     <div class="flex items-center gap-3">
                         <Logo size="md" />
                     </div>
 
-                    <!-- Right Actions -->
                     <div class="flex items-center gap-2">
                         <RemindersModal />
                         <ThemeToggle />
@@ -114,7 +110,6 @@
             </div>
         </header>
 
-        <!-- Main Content -->
         <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {@render children()}
         </main>
@@ -124,12 +119,10 @@
 {/snippet}
 
 <div class="relative min-h-screen overflow-hidden">
-    <!-- Current Theme Layer (Base) -->
     <div class="absolute inset-0">
         {@render appShell(themeStore.isDark)}
     </div>
 
-    <!-- animating Reveal Layer (Overlay) -->
     {#if themeStore.isAnimating && themeStore.pendingTheme !== null}
         <div
             class="absolute inset-0 z-[100]"

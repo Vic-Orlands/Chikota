@@ -1,38 +1,34 @@
-# sv
+# Chikọta - AI Bookmark Manager
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Chikọta ("Gather" in Igbo) is a simple but premium, bookmark manager built with modern web technologies. It helps you organize, categorize, and rediscover your saved content with ease.
 
-## Creating a project
+## Tech Stack
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **Framework**: [Svelte 5](https://svelte.dev) + [SvelteKit](https://kit.svelte.dev)
+- **Styling**: [TailwindCSS v4](https://tailwindcss.com) + [Lucide Icons](https://lucide.dev)
+- **Authentication**: [Better Auth](https://www.better-auth.com)
+- **Database**: [Drizzle ORM](https://orm.drizzle.team) + PostgreSQL
+- **Language**: TypeScript
 
-```sh
-# create a new project in the current directory
-npx sv create
+## Key Features
 
-# create a new project in my-app
-npx sv create my-app
-```
+- **AI Categorization**: Automatically organizes bookmarks into relevant categories.
+- **Smart Reminders**: Set reminders to revisit saved content.
+- **Modern UI/UX**: Features a sleek, responsive design with dark/light mode support and smooth animations.
 
-## Developing
+## Getting Started
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+1.  **Install dependencies**:
+    ```bash
+    pnpm install
+    ```
 
-```sh
-npm run dev
+2.  **Start the development server**:
+    ```bash
+    pnpm dev
+    ```
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+3.  **Build for production**:
+    ```bash
+    pnpm build
+    ```

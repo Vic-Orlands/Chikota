@@ -6,8 +6,6 @@
     import {
         DateFormatter,
         type DateValue,
-        getLocalTimeZone,
-        today,
         parseDate,
     } from "@internationalized/date";
     import { toast } from "svelte-sonner";
@@ -70,17 +68,23 @@
         const delay = finalDate.getTime() - now.getTime();
         if (delay > 0) {
             setTimeout(() => {
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('Bookmark Reminder', {
+                if (
+                    "Notification" in window &&
+                    Notification.permission === "granted"
+                ) {
+                    new Notification("Bookmark Reminder", {
                         body: `Don't forget to check your bookmark!`,
-                        icon: '/favicon.ico'
+                        icon: "/favicon.ico",
                     });
-                } else if ('Notification' in window && Notification.permission !== 'denied') {
-                    Notification.requestPermission().then(permission => {
-                        if (permission === 'granted') {
-                            new Notification('Bookmark Reminder', {
+                } else if (
+                    "Notification" in window &&
+                    Notification.permission !== "denied"
+                ) {
+                    Notification.requestPermission().then((permission) => {
+                        if (permission === "granted") {
+                            new Notification("Bookmark Reminder", {
                                 body: `Don't forget to check your bookmark!`,
-                                icon: '/favicon.ico'
+                                icon: "/favicon.ico",
                             });
                         }
                     });
@@ -91,19 +95,19 @@
         // For email, send via API with Resend
         if (email.trim()) {
             try {
-                await fetch('/api/send-reminder', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                await fetch("/api/send-reminder", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         email: email.trim(),
-                        title: bookmarkTitle || 'Bookmark Reminder',
-                        url: bookmarkUrl || '',
+                        title: bookmarkTitle || "Bookmark Reminder",
+                        url: bookmarkUrl || "",
                         reminderAt: finalDate.toISOString(),
                     }),
                 });
             } catch (err) {
-                console.error('Failed to schedule email reminder:', err);
-                toast.error('Failed to schedule email reminder');
+                console.error("Failed to schedule email reminder:", err);
+                toast.error("Failed to schedule email reminder");
             }
         }
 

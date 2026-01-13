@@ -332,16 +332,20 @@ input, textarea, select {
 
 /* Grid background pattern */
 /* Grid background pattern */
+/* Grid background pattern */
 .grid-bg {
-  background-size: 50px 50px;
-  background-image: url("data:image/svg+xml,%3Csvg width='50' height='50' viewBox='0 0 50 50' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23888888' fill-opacity='0.15' fill-rule='evenodd'%3E%3Cpath d='M11 0l5 20 5 20H0l5-20L11 0z' transform='matrix(0 0 0 0 0 0)'/%3E%3Cpath d='M1 0h2v50H1zM0 1h50v2H0z'/%3E%3C/g%3E%3C/svg%3E");
-  opacity: 0.6;
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  opacity: 0.4;
   z-index: -1;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 100%);
 }
 
 .dark .grid-bg {
-  opacity: 0.3;
-  background-image: url("data:image/svg+xml,%3Csvg width='50' height='50' viewBox='0 0 50 50' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.15' fill-rule='evenodd'%3E%3Cpath d='M1 0h2v50H1zM0 1h50v2H0z'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.25;
 }
 
 /* ============================================
