@@ -10,17 +10,14 @@
         ArrowLeft,
     } from "lucide-svelte";
     import { onMount } from "svelte";
-
-    import { onMount } from "svelte";
     import { themeStore } from "$lib/stores/theme.svelte"; // Assuming theme store is used or we use local
     import { tags } from "$lib/stores/tags";
     import { Tags, Trash2, Edit2, X, Check, MoreVertical } from "lucide-svelte";
     import { Input } from "$lib/components/ui/input";
-    import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
     import { toast } from "svelte-sonner";
 
     let currentTheme = $state<"light" | "dark" | "system">("system");
-    
+
     // Tag Management State
     let selectedTags = $state<string[]>([]);
     let editingTagId = $state<string | null>(null);
@@ -120,23 +117,26 @@
                     {/each}
                 </div>
             </div>
-            </div>
         </section>
 
         <!-- Tags Management Section -->
         <section class="space-y-3">
-             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            <div class="flex items-center justify-between">
+                <div
+                    class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+                >
                     <Tags class="h-3 w-3" />
                     Tags
                 </div>
                 {#if selectedTags.length > 0}
-                    <Button 
-                        variant="destructive" 
-                        size="sm" 
+                    <Button
+                        variant="destructive"
+                        size="sm"
                         class="h-6 text-[10px] px-2"
                         onclick={() => {
-                            if(confirm(`Delete ${selectedTags.length} tags?`)) {
+                            if (
+                                confirm(`Delete ${selectedTags.length} tags?`)
+                            ) {
                                 tags.deleteTags(selectedTags);
                                 selectedTags = [];
                                 toast.success("Tags deleted");
@@ -149,7 +149,9 @@
                 {/if}
             </div>
 
-            <div class="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden">
+            <div
+                class="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden"
+            >
                 {#if $tags.length === 0}
                     <div class="p-8 text-center text-muted-foreground text-xs">
                         No tags yet. Add tags when creating bookmarks.
@@ -157,87 +159,118 @@
                 {:else}
                     <div class="divide-y divide-border/40">
                         {#each $tags as tag (tag.id)}
-                            <div class="flex items-center justify-between p-3 hover:bg-secondary/40 transition-colors group">
+                            <div
+                                class="flex items-center justify-between p-3 hover:bg-secondary/40 transition-colors group"
+                            >
                                 <div class="flex items-center gap-3 flex-1">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         class="rounded border-input text-primary focus:ring-primary/20"
                                         checked={selectedTags.includes(tag.id)}
                                         onchange={(e) => {
                                             if (e.currentTarget.checked) {
-                                                selectedTags = [...selectedTags, tag.id];
+                                                selectedTags = [
+                                                    ...selectedTags,
+                                                    tag.id,
+                                                ];
                                             } else {
-                                                selectedTags = selectedTags.filter(id => id !== tag.id);
+                                                selectedTags =
+                                                    selectedTags.filter(
+                                                        (id) => id !== tag.id,
+                                                    );
                                             }
                                         }}
                                     />
-                                    
+
                                     {#if editingTagId === tag.id}
-                                        <div class="flex items-center gap-2 flex-1">
-                                            <Input 
-                                                bind:value={editName} 
-                                                class="h-7 text-xs" 
+                                        <div
+                                            class="flex items-center gap-2 flex-1"
+                                        >
+                                            <Input
+                                                bind:value={editName}
+                                                class="h-7 text-xs"
                                                 autofocus
                                                 onkeydown={(e) => {
-                                                    if(e.key === 'Enter') {
-                                                        tags.updateTag(tag.id, { name: editName });
+                                                    if (e.key === "Enter") {
+                                                        tags.updateTag(tag.id, {
+                                                            name: editName,
+                                                        });
                                                         editingTagId = null;
-                                                        toast.success("Tag updated");
-                                                    } else if(e.key === 'Escape') {
+                                                        toast.success(
+                                                            "Tag updated",
+                                                        );
+                                                    } else if (
+                                                        e.key === "Escape"
+                                                    ) {
                                                         editingTagId = null;
                                                     }
                                                 }}
                                             />
-                                            <Button 
-                                                size="icon" 
-                                                variant="ghost" 
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
                                                 class="h-7 w-7 text-green-500"
                                                 onclick={() => {
-                                                    tags.updateTag(tag.id, { name: editName });
+                                                    tags.updateTag(tag.id, {
+                                                        name: editName,
+                                                    });
                                                     editingTagId = null;
-                                                    toast.success("Tag updated");
+                                                    toast.success(
+                                                        "Tag updated",
+                                                    );
                                                 }}
                                             >
                                                 <Check class="h-3.5 w-3.5" />
                                             </Button>
-                                            <Button 
-                                                size="icon" 
-                                                variant="ghost" 
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
                                                 class="h-7 w-7 text-destructive"
-                                                onclick={() => editingTagId = null}
+                                                onclick={() =>
+                                                    (editingTagId = null)}
                                             >
                                                 <X class="h-3.5 w-3.5" />
                                             </Button>
                                         </div>
                                     {:else}
                                         <span class="text-sm">{tag.name}</span>
-                                        <span class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
-                                            {tag.color || 'default'}
+                                        <span
+                                            class="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full bg-secondary"
+                                        >
+                                            {tag.color || "default"}
                                         </span>
                                     {/if}
                                 </div>
 
                                 {#if editingTagId !== tag.id}
-                                    <div class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
+                                    <div
+                                        class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             class="h-8 w-8"
                                             onclick={() => {
                                                 editingTagId = tag.id;
                                                 editName = tag.name;
                                             }}
                                         >
-                                            <Edit2 class="h-3.5 w-3.5 text-muted-foreground" />
+                                            <Edit2
+                                                class="h-3.5 w-3.5 text-muted-foreground"
+                                            />
                                         </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             class="h-8 w-8 hover:text-destructive"
                                             onclick={() => {
-                                                if(confirm("Delete this tag?")) {
+                                                if (
+                                                    confirm("Delete this tag?")
+                                                ) {
                                                     tags.deleteTag(tag.id);
-                                                    toast.success("Tag deleted");
+                                                    toast.success(
+                                                        "Tag deleted",
+                                                    );
                                                 }
                                             }}
                                         >
