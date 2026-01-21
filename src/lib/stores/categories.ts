@@ -10,10 +10,20 @@ const defaultCategories: Category[] = [
     { id: '4', name: 'Reading List', color: 'amber', icon: 'BookOpen' }
 ];
 
+const allCategory: Category = { id: 'all', name: 'All', color: 'emerald', icon: 'Globe' };
+
 // Helper function to create a store that syncs with localStorage
 function createPersistedStore<T>(key: string, initialValue: T) {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
-    const initial = stored ? JSON.parse(stored) : initialValue;
+    let initial = stored ? JSON.parse(stored) : initialValue;
+
+    // Ensure "All" category always exists for categories store
+    if (key === 'categories' && Array.isArray(initial)) {
+        const hasAllCategory = initial.some((c: Category) => c.id === 'all');
+        if (!hasAllCategory) {
+            initial = [allCategory, ...initial];
+        }
+    }
 
     const store = writable<T>(initial);
 

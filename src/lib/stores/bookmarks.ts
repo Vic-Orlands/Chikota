@@ -92,7 +92,9 @@ export const filteredBookmarks = derived(
 export const bookmarkCounts = derived(
     bookmarks,
     ($bookmarks) => {
-        const counts: Record<string, number> = {};
+        const counts: Record<string, number> = {
+            all: $bookmarks.length // Total count for "All" category
+        };
         $bookmarks.forEach(b => {
             counts[b.categoryId] = (counts[b.categoryId] || 0) + 1;
         });
