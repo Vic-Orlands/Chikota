@@ -2,13 +2,14 @@
     import type { Bookmark } from "$lib/types";
     import { Badge } from "$lib/components/ui/badge";
     import { Button } from "$lib/components/ui/button";
+    import { Checkbox } from "$lib/components/ui/checkbox";
     import {
         ExternalLink,
         Trash2,
-        Calendar,
+        Pencil,
         Clock,
-        MoreHorizontal,
         Copy,
+        CircleCheckBig,
     } from "lucide-svelte";
     import { bookmarks } from "$lib/stores/bookmarks";
     import { categories, categoryColorClasses } from "$lib/stores/categories";
@@ -17,15 +18,28 @@
     import { cn } from "$lib/utils";
     import ReminderPicker from "$lib/components/ReminderPicker.svelte";
     import DefaultFavicon from "$lib/components/icons/DefaultFavicon.svelte";
+    import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
     let {
         bookmark,
         viewMode = "grid",
-    }: { bookmark: Bookmark; viewMode?: "grid" | "list" } = $props();
+        onEdit,
+        isSelectionMode = false,
+        isSelected = false,
+        onSelect = undefined,
+    }: {
+        bookmark: Bookmark;
+        viewMode?: "grid" | "list";
+        onEdit: (b: Bookmark) => void;
+        isSelectionMode?: boolean;
+        isSelected?: boolean;
+        onSelect?: (id: string) => void;
+    } = $props();
 
     let isDeleting = $state(false);
     let copyText = $state("Copy");
     let faviconError = $state(false);
+    let showDeleteConfirm = $state(false);
 
     let category = $derived(
         $categories.find((c) => c.id === bookmark.categoryId),
@@ -35,6 +49,10 @@
     );
 
     function handleDelete() {
+        showDeleteConfirm = true;
+    }
+
+    function confirmDelete() {
         isDeleting = true;
         setTimeout(() => {
             bookmarks.removeBookmark(bookmark.id);
@@ -53,10 +71,22 @@
     <!-- Grid Card View -->
     <div
         class={cn(
-            "bg-card rounded-xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full",
+            "relative bg-card rounded-xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full",
             isDeleting && "scale-95 opacity-50",
         )}
     >
+        {#if isSelectionMode}
+            <div
+                class="absolute top-3 left-3 z-10"
+                onclick={(e) => e.stopPropagation()}
+            >
+                <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onSelect?.(bookmark.id)}
+                    class="bg-background/90 backdrop-blur-sm border-primary/50"
+                />
+            </div>
+        {/if}
         <div class="p-5 flex-1">
             <div class="flex flex-col items-center gap-3 mb-3">
                 {#if !faviconError}
@@ -105,13 +135,17 @@
         </div>
 
         <div
-            class="border-t border-border px-5 py-3 bg-secondary/50 flex items-center gap-2 mt-auto"
+            class="border-t border-border px-5 py-3 bg-secondary/50 flex items-center gap-1 mt-auto"
         >
             <button
                 class="flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors"
                 onclick={handleCopy}
             >
-                <Copy class="w-4 h-4" />
+                {#if copyText === "Copied"}
+                    <CircleCheckBig class="w-4 h-4" />
+                {:else}
+                    <Copy class="w-4 h-4" />
+                {/if}
                 <span>{copyText}</span>
             </button>
 
@@ -165,6 +199,14 @@
             <div class="flex-1"></div>
 
             <button
+                class="flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors"
+                onclick={() => onEdit(bookmark)}
+            >
+                <Pencil class="w-4 h-4" />
+                <span>Edit</span>
+            </button>
+
+            <button
                 class="flex items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                 onclick={handleDelete}
             >
@@ -181,6 +223,14 @@
             isDeleting && "scale-98 opacity-50",
         )}
     >
+        {#if isSelectionMode}
+            <div class="pl-2" onclick={(e) => e.stopPropagation()}>
+                <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onSelect?.(bookmark.id)}
+                />
+            </div>
+        {/if}
         <div class="flex-1 min-w-0 flex items-center gap-4">
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
@@ -235,7 +285,19 @@
                 class="h-6 w-6 btn-click-effect"
                 onclick={handleCopy}
             >
-                <Copy class="h-3 w-3" />
+                {#if copyText === "Copied"}
+                    <CircleCheckBig class="h-3 w-3" />
+                {:else}
+                    <Copy class="h-3 w-3" />
+                {/if}
+            </Button>
+            <Button
+                variant="ghost"
+                size="icon"
+                class="h-6 w-6 btn-click-effect"
+                onclick={() => onEdit(bookmark)}
+            >
+                <Pencil class="h-3 w-3" />
             </Button>
             <Button
                 variant="ghost"
@@ -256,3 +318,11 @@
         </div>
     </div>
 {/if}
+
+<ConfirmDialog
+    bind:open={showDeleteConfirm}
+    title="Delete Bookmark"
+    description="Are you sure you want to delete this bookmark? This action cannot be undone."
+    confirmText="Delete"
+    onConfirm={confirmDelete}
+/>

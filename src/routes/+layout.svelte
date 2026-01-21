@@ -12,14 +12,16 @@
     import { onMount } from "svelte";
     import { themeStore } from "$lib/stores/theme.svelte";
     import { bookmarks } from "$lib/stores/bookmarks";
+    import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
-    let { children } = $props();
+    let { children, data } = $props();
 
-    let session = $state(authClient.useSession());
+    let session = $state(data.session);
+    let showSignOutConfirm = $state(false);
 
     onMount(() => {
         themeStore.init();
-        if ($session.data) {
+        if (session) {
             bookmarks.init();
         }
     });
@@ -55,11 +57,11 @@
 
                         <div class="h-4 w-px bg-border mx-1"></div>
 
-                        {#if $session.data}
+                        {#if session}
                             <div class="flex items-center gap-2">
-                                {#if $session.data.user.image}
+                                {#if session.user.image}
                                     <img
-                                        src={$session.data.user.image}
+                                        src={session.user.image}
                                         alt="User"
                                         class="h-7 w-7 rounded-full border border-border/50"
                                     />
@@ -76,7 +78,7 @@
                                     variant="ghost"
                                     size="sm"
                                     class="h-8 text-xs gap-2"
-                                    onclick={() => authClient.signOut()}
+                                    onclick={() => (showSignOutConfirm = true)}
                                 >
                                     <LogOut class="h-3.5 w-3.5" />
                                     <span class="hidden sm:inline"
@@ -126,6 +128,15 @@
 
         <Toaster />
     </div>
+
+    <ConfirmDialog
+        bind:open={showSignOutConfirm}
+        title="Sign Out"
+        description="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        variant="default"
+        onConfirm={() => authClient.signOut()}
+    />
 {/snippet}
 
 <div class="relative min-h-screen overflow-hidden">

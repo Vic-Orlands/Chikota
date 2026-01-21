@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, primaryKey } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 export const user = pgTable("user", {
     id: text("id").primaryKey(),
@@ -68,3 +69,38 @@ export const categories = pgTable("categories", {
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     updatedAt: timestamp("updatedAt").notNull().defaultNow()
 });
+
+export const tags = pgTable("tags", {
+    id: text("id").primaryKey(),
+    userId: text("userId").notNull().references(() => user.id),
+    name: text("name").notNull(),
+    color: text("color"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow()
+});
+
+export const bookmarksToTags = pgTable("bookmarks_to_tags", {
+    bookmarkId: text("bookmarkId").notNull().references(() => bookmarks.id, { onDelete: 'cascade' }),
+    tagId: text("tagId").notNull().references(() => tags.id, { onDelete: 'cascade' }),
+}, (t) => [
+    primaryKey({ columns: [t.bookmarkId, t.tagId] })
+]);
+
+export const bookmarksRelations = relations(bookmarks, ({ many }) => ({
+    tags: many(bookmarksToTags)
+}));
+
+export const tagsRelations = relations(tags, ({ many }) => ({
+    bookmarks: many(bookmarksToTags)
+}));
+
+export const bookmarksToTagsRelations = relations(bookmarksToTags, ({ one }) => ({
+    bookmark: one(bookmarks, {
+        fields: [bookmarksToTags.bookmarkId],
+        references: [bookmarks.id]
+    }),
+    tag: one(tags, {
+        fields: [bookmarksToTags.tagId],
+        references: [tags.id]
+    })
+}));

@@ -6,7 +6,18 @@
     let {
         bookmarks,
         viewMode = "grid",
-    }: { bookmarks: Bookmark[]; viewMode?: "grid" | "list" } = $props();
+        onEdit,
+        isSelectionMode = false,
+        selectedIds = new Set(),
+        onSelect = () => {},
+    }: {
+        bookmarks: Bookmark[];
+        viewMode?: "grid" | "list";
+        onEdit: (b: Bookmark) => void;
+        isSelectionMode?: boolean;
+        selectedIds?: Set<string>;
+        onSelect?: (id: string) => void;
+    } = $props();
 
     // Infinite scroll settings
     const BATCH_SIZE = 12;
@@ -65,7 +76,14 @@
             : 'flex flex-col gap-2'}"
     >
         {#each visibleBookmarks as bookmark (bookmark.id)}
-            <BookmarkCard {bookmark} {viewMode} />
+            <BookmarkCard
+                {bookmark}
+                {viewMode}
+                {onEdit}
+                {isSelectionMode}
+                isSelected={selectedIds.has(bookmark.id)}
+                {onSelect}
+            />
         {/each}
     </div>
 

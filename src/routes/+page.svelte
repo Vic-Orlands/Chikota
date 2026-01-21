@@ -1,14 +1,21 @@
 <script lang="ts">
     import { filteredBookmarks } from "$lib/stores/bookmarks";
+    import type { Bookmark } from "$lib/types";
     import { activeCategoryId, categories } from "$lib/stores/categories";
     import BookmarkGrid from "$lib/components/BookmarkGrid.svelte";
     import AddBookmarkDialog from "$lib/components/AddBookmarkDialog.svelte";
     import CategoryTabs from "$lib/components/CategoryTabs.svelte";
     import LandingPage from "$lib/components/LandingPage.svelte";
     import { Input } from "$lib/components/ui/input";
-    import { Search, Filter, LayoutGrid, List } from "lucide-svelte";
+    import {
+        Search,
+        Filter,
+        LayoutGrid,
+        List,
+        CheckSquare,
+        Trash2,
+    } from "lucide-svelte";
     import { Button } from "$lib/components/ui/button";
-    import { authClient } from "$lib/auth-client";
 
     let currentCategory = $derived(
         $categories.find((c) => c.id === $activeCategoryId),
@@ -17,8 +24,50 @@
     let searchQuery = $state("");
     let viewMode: "grid" | "list" = $state("grid");
 
-    // Auth Session State
-    let session = $state(authClient.useSession());
+    let { data } = $props();
+    // Use session from server load to prevent flicker
+    let session = $derived(data.session);
+
+    let editingBookmark = $state<Bookmark | undefined>(undefined);
+    let isEditDialogOpen = $state(false);
+
+    // Bulk Selection State
+    let isSelectionMode = $state(false);
+    let selectedIds = $state<Set<string>>(new Set());
+
+    function handleEdit(bookmark: Bookmark) {
+        editingBookmark = bookmark;
+        isEditDialogOpen = true;
+    }
+
+    function toggleSelectionMode() {
+        isSelectionMode = !isSelectionMode;
+        selectedIds = new Set();
+    }
+
+    function toggleSelect(id: string) {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        selectedIds = newSet;
+    }
+
+    async function handleBulkDelete() {
+        if (selectedIds.size === 0) return;
+        if (
+            !confirm(
+                `Are you sure you want to delete ${selectedIds.size} bookmarks?`,
+            )
+        )
+            return;
+
+        await bookmarks.deleteBookmarks(Array.from(selectedIds));
+        isSelectionMode = false;
+        selectedIds = new Set();
+    }
 
     let displayedBookmarks = $derived(
         searchQuery
@@ -31,7 +80,7 @@
                           ?.toLowerCase()
                           .includes(searchQuery.toLowerCase()) ||
                       b.tags.some((t) =>
-                          t.text
+                          t.name
                               .toLowerCase()
                               .includes(searchQuery.toLowerCase()),
                       ),
@@ -40,7 +89,7 @@
     );
 </script>
 
-{#if !$session.data}
+{#if !session}
     <LandingPage />
 {:else}
     <div class="space-y-6">
@@ -58,13 +107,58 @@
                         Organize and access your saved links
                     </p>
                 </div>
-                <AddBookmarkDialog />
+                <AddBookmarkDialog
+                    bind:open={isEditDialogOpen}
+                    mode="edit"
+                    bookmark={editingBookmark}
+                />
             </div>
 
             <CategoryTabs />
         </header>
 
+        <!-- Bulk Actions Bar -->
+        {#if isSelectionMode}
+            <div
+                class="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/50 animate-in fade-in slide-in-from-top-2"
+            >
+                <span class="text-sm font-medium">
+                    {selectedIds.size} selected
+                </span>
+                <div class="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onclick={() => (isSelectionMode = false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        class="gap-2"
+                        disabled={selectedIds.size === 0}
+                        onclick={handleBulkDelete}
+                    >
+                        <Trash2 class="h-4 w-4" />
+                        Delete Selected
+                    </Button>
+                </div>
+            </div>
+        {/if}
+
         <div class="flex items-center gap-3">
+            <Button
+                variant={isSelectionMode ? "secondary" : "ghost"}
+                size="sm"
+                class="h-10 text-xs gap-2"
+                onclick={toggleSelectionMode}
+            >
+                <CheckSquare class="h-4 w-4" />
+                {isSelectionMode ? "Done" : "Select"}
+            </Button>
+            <div class="h-6 w-px bg-border"></div>
+
             <div class="relative flex-1 group">
                 <Search
                     class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground 
@@ -105,7 +199,14 @@
         </div>
 
         {#if displayedBookmarks.length > 0}
-            <BookmarkGrid bookmarks={displayedBookmarks} {viewMode} />
+            <BookmarkGrid
+                bookmarks={displayedBookmarks}
+                {viewMode}
+                onEdit={handleEdit}
+                {isSelectionMode}
+                {selectedIds}
+                onSelect={toggleSelect}
+            />
         {:else}
             <div
                 class="flex flex-col items-center justify-center py-16 text-center"

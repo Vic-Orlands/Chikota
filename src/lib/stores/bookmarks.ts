@@ -52,6 +52,17 @@ function createBookmarkStore() {
                 set(oldState); // Revert
             }
         },
+        deleteBookmarks: async (ids: string[]) => {
+            const oldState = await new Promise<Bookmark[]>(resolve => subscribe(resolve)());
+            update(n => n.filter(b => !ids.includes(b.id)));
+            try {
+                const res = await fetch(`/api/bookmarks?ids=${ids.join(',')}`, { method: "DELETE" });
+                if (!res.ok) throw new Error("Failed to delete bookmarks");
+            } catch (err) {
+                console.error(err);
+                set(oldState);
+            }
+        },
         updateBookmark: async (id: string, data: Partial<Bookmark>) => {
             update(n => n.map(b => b.id === id ? { ...b, ...data } : b));
             try {

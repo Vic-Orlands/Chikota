@@ -11,21 +11,45 @@
         categoryColorClasses,
     } from "$lib/stores/categories";
     import Spinner from "$lib/components/Spinner.svelte";
-    import { Plus, X, Link, Bookmark } from "lucide-svelte";
+    import { Plus, X, Link, Bookmark as BookmarkIcon } from "lucide-svelte";
     import { toast } from "svelte-sonner";
-    import type { Tag } from "$lib/types";
+    import type { Tag, Bookmark } from "$lib/types";
 
-    let open = false;
-    let url = "";
-    let isLoading = false;
-    let dataFetched = false;
+    let {
+        trigger = undefined,
+        open = $bindable(false),
+        mode = "add",
+        bookmark = undefined,
+    }: {
+        trigger?: import("svelte").Snippet;
+        open?: boolean;
+        mode?: "add" | "edit";
+        bookmark?: Bookmark;
+    } = $props();
+
+    let url = $state("");
+    let isLoading = $state(false);
+    let dataFetched = $state(false);
 
     // Form fields
-    let title = "";
-    let summary = "";
-    let tags: Tag[] = [];
-    let selectedCategoryId = "";
-    let newTagInput = "";
+    let title = $state("");
+    let summary = $state("");
+    let tags = $state<Tag[]>([]);
+    let selectedCategoryId = $state("");
+    let newTagInput = $state("");
+
+    $effect(() => {
+        if (open && mode === "edit" && bookmark) {
+            url = bookmark.url;
+            title = bookmark.title;
+            summary = bookmark.summary || "";
+            tags = [...bookmark.tags];
+            selectedCategoryId = bookmark.categoryId;
+            dataFetched = true;
+        } else if (open && mode === "add" && !dataFetched) {
+            // Keep reset state
+        }
+    });
 
     // Simulated URL metadata fetch (replace AI simulator)
     async function handleFetchMetadata() {
@@ -53,19 +77,30 @@
     function handleSave() {
         if (!title || !url) return;
 
-        bookmarks.addBookmark({
-            id: crypto.randomUUID(),
-            url,
-            title,
-            summary,
-            tags,
-            categoryId: selectedCategoryId || $activeCategoryId,
-            createdAt: new Date(),
-        });
+        if (mode === "edit" && bookmark) {
+            bookmarks.updateBookmark(bookmark.id, {
+                url,
+                title,
+                summary,
+                tags,
+                categoryId: selectedCategoryId || $activeCategoryId,
+            });
+            toast.success("Bookmark updated!");
+        } else {
+            bookmarks.addBookmark({
+                id: crypto.randomUUID(),
+                url,
+                title,
+                summary,
+                tags,
+                categoryId: selectedCategoryId || $activeCategoryId,
+                createdAt: new Date(),
+            });
+            toast.success("Bookmark saved!");
+        }
 
-        toast.success("Bookmark saved!");
         open = false;
-        reset();
+        if (mode === "add") reset();
     }
 
     function reset() {
@@ -85,7 +120,7 @@
 
     function addTag() {
         if (!newTagInput.trim()) return;
-        tags = [...tags, { id: crypto.randomUUID(), text: newTagInput.trim() }];
+        tags = [...tags, { id: crypto.randomUUID(), name: newTagInput.trim() }];
         newTagInput = "";
     }
 
@@ -97,17 +132,23 @@
     }
 </script>
 
-<Dialog.Root bind:open onOpenChange={(v) => !v && reset()}>
-    <Dialog.Trigger>
-        <Button
-            size="sm"
-            class="h-8 text-xs shadow-md shadow-primary/10 hover:shadow-primary/20 
-                   transition-all duration-200 btn-click-effect gap-1.5"
-        >
-            <Plus class="h-3.5 w-3.5" />
-            Add Bookmark
-        </Button>
-    </Dialog.Trigger>
+<Dialog.Root bind:open onOpenChange={(v) => !v && mode === "add" && reset()}>
+    {#if trigger}
+        <Dialog.Trigger>
+            {@render trigger()}
+        </Dialog.Trigger>
+    {:else}
+        <Dialog.Trigger>
+            <Button
+                size="sm"
+                class="h-8 text-xs shadow-md shadow-primary/10 hover:shadow-primary/20 
+                       transition-all duration-200 btn-click-effect gap-1.5"
+            >
+                <Plus class="h-3.5 w-3.5" />
+                Add Bookmark
+            </Button>
+        </Dialog.Trigger>
+    {/if}
 
     <Dialog.Content
         class="sm:max-w-[420px] border-border/50 bg-card/98 backdrop-blur-xl p-0 gap-0 overflow-hidden"
@@ -117,9 +158,9 @@
                 <div
                     class="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center"
                 >
-                    <Bookmark class="h-3.5 w-3.5 text-primary" />
+                    <BookmarkIcon class="h-3.5 w-3.5 text-primary" />
                 </div>
-                Add Bookmark
+                {mode === "edit" ? "Edit Bookmark" : "Add Bookmark"}
             </Dialog.Title>
             <Dialog.Description class="text-[11px] text-muted-foreground">
                 Paste a URL to save and organize
@@ -261,7 +302,7 @@
                                            hover:text-destructive cursor-pointer transition-colors btn-click-effect"
                                     onclick={() => removeTag(tag.id)}
                                 >
-                                    {tag.text}
+                                    {tag.name}
                                     <X
                                         class="h-2.5 w-2.5 opacity-50 group-hover:opacity-100"
                                     />
@@ -298,7 +339,7 @@
                     onclick={handleSave}
                     disabled={!title || !url}
                 >
-                    Save Bookmark
+                    Save {mode === "edit" ? "Changes" : "Bookmark"}
                 </Button>
             </div>
         {/if}
