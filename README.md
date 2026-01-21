@@ -1,4 +1,4 @@
-# Chikọta - AI Bookmark Manager
+# Chikọta - Bookmark Manager
 
 Chikọta ("Gather" in Igbo) is a simple but premium, bookmark manager built with modern web technologies. It helps you organize, categorize, and rediscover your saved content with ease.
 
@@ -12,7 +12,7 @@ Chikọta ("Gather" in Igbo) is a simple but premium, bookmark manager built wit
 
 ## Key Features
 
-- **AI Categorization**: Automatically organizes bookmarks into relevant categories.
+- **Tagging**: Tag your bookmarks to organize them.
 - **Smart Reminders**: Set reminders to revisit saved content.
 - **Modern UI/UX**: Features a sleek, responsive design with dark/light mode support and smooth animations.
 
