@@ -1,34 +1,64 @@
-# Chikọta - Bookmark Manager
+# Chikọta
 
-Chikọta ("Gather" in Igbo) is a simple but premium, bookmark manager built with modern web technologies. It helps you organize, categorize, and rediscover your saved content with ease.
+Chikọta means “gather” in Igbo. It is a focused bookmark workspace for organizing saved content and scheduling reminders to return to it.
 
-## Tech Stack
+[Live product](https://chikota.vercel.app)
 
-- **Framework**: [Svelte 5](https://svelte.dev) + [SvelteKit](https://kit.svelte.dev)
-- **Styling**: [TailwindCSS v4](https://tailwindcss.com) + [Lucide Icons](https://lucide.dev)
-- **Authentication**: [Better Auth](https://www.better-auth.com)
-- **Database**: [Drizzle ORM](https://orm.drizzle.team) + PostgreSQL
-- **Language**: TypeScript
+![Chikọta landing page](./docs/assets/chikota-home.png)
 
-## Key Features
+## The product
 
-- **Tagging**: Tag your bookmarks to organize them.
-- **Smart Reminders**: Set reminders to revisit saved content.
-- **Modern UI/UX**: Features a sleek, responsive design with dark/light mode support and smooth animations.
+Saving a link is easy; finding it again is usually the problem. Chikọta keeps the workflow intentionally small: capture a bookmark, organize it, find it quickly, and set a reminder when the content deserves another visit.
 
-## Getting Started
+- Account creation and authenticated workspaces
+- Bookmark creation, editing, and deletion
+- Tags and category views
+- Searchable bookmark grid
+- Reminder scheduling and reminder email delivery
+- Light and dark appearance settings
+- Responsive interaction patterns for desktop and mobile
 
-1.  **Install dependencies**:
-    ```bash
-    pnpm install
-    ```
+## Architecture
 
-2.  **Start the development server**:
-    ```bash
-    pnpm dev
-    ```
+```mermaid
+flowchart LR
+    U["User"] --> SK["SvelteKit application"]
+    SK --> A["Better Auth"]
+    SK --> DB["PostgreSQL via Drizzle"]
+    SK --> E["Reminder email service"]
+```
 
-3.  **Build for production**:
-    ```bash
-    pnpm build
-    ```
+SvelteKit server routes enforce authentication and expose bookmark, tag, and reminder operations. PostgreSQL stores user-owned content through Drizzle migrations, while the interface is composed from small Svelte components and shared UI primitives.
+
+## Stack
+
+- Svelte 5 and SvelteKit
+- TypeScript
+- Tailwind CSS
+- Better Auth
+- PostgreSQL and Drizzle ORM
+- Resend
+
+## Local development
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Configure the database, authentication, site URL, and email provider values expected by the application before testing authenticated and reminder flows.
+
+## Verify
+
+```bash
+pnpm check
+pnpm build
+```
+
+## Project status
+
+Chikọta is a working product prototype. The next engineering priorities are automated tests, reminder-job observability, import/export support, duplicate detection, and browser-extension capture.
+
+## License
+
+MIT
