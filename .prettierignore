@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+.svelte-kit
+node_modules
+.playwright-cli
+output
+static/chikota-extension.zip
+src/lib/components/icons/radix

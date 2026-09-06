@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chikota extension settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>chikota.</h1>
+      <h2>A home for your good finds.</h2>
+      <p>
+        Set the address of your Chikota app. Saved links open there and are
+        added to your reading list.
+      </p>
+      <form>
+        <label for="url">Chikota address</label
+        ><input
+          id="url"
+          type="url"
+          placeholder="http://localhost:5173"
+          required
+        /><button>Save address</button>
+        <p id="status" role="status"></p>
+      </form>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

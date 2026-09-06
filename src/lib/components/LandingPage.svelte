@@ -2,7 +2,7 @@
     import { Button } from "$lib/components/ui/button";
     import Logo from "$lib/components/Logo.svelte";
     import { authClient } from "$lib/auth-client";
-    import { ArrowRight, Sparkles } from "lucide-svelte";
+    import { ArrowRight, Sparkles } from "$lib/components/icons/radix";
     import { cn } from "$lib/utils";
     import DefaultFavicon from "$lib/components/icons/DefaultFavicon.svelte";
 </script>

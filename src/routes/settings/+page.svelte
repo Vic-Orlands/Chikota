@@ -8,15 +8,15 @@
         Palette,
         Info,
         ArrowLeft,
-    } from "lucide-svelte";
+    } from "$lib/components/icons/radix";
     import { onMount } from "svelte";
     import { themeStore } from "$lib/stores/theme.svelte"; // Assuming theme store is used or we use local
     import { tags } from "$lib/stores/tags";
-    import { Tags, Trash2, Edit2, X, Check, MoreVertical } from "lucide-svelte";
+    import { Tags, Trash2, Edit2, X, Check, MoreVertical } from "$lib/components/icons/radix";
     import { Input } from "$lib/components/ui/input";
     import { toast } from "svelte-sonner";
 
-    let currentTheme = $state<"light" | "dark" | "system">("system");
+    let currentTheme = $derived(themeStore.current);
 
     // Tag Management State
     let selectedTags = $state<string[]>([]);
@@ -25,42 +25,22 @@
 
     onMount(() => {
         tags.init();
-        const stored = localStorage.getItem("chikota-theme");
-        if (stored === "dark" || stored === "light") {
-            currentTheme = stored;
-        }
+
     });
 
-    function setTheme(theme: "light" | "dark" | "system") {
+    function setTheme(theme: "light" | "forest" | "ember") {
         currentTheme = theme;
-
-        if (theme === "system") {
-            const prefersDark = window.matchMedia(
-                "(prefers-color-scheme: dark)",
-            ).matches;
-            if (prefersDark) {
-                document.documentElement.classList.add("dark");
-            } else {
-                document.documentElement.classList.remove("dark");
-            }
-            localStorage.removeItem("chikota-theme");
-        } else if (theme === "dark") {
-            document.documentElement.classList.add("dark");
-            localStorage.setItem("chikota-theme", "dark");
-        } else {
-            document.documentElement.classList.remove("dark");
-            localStorage.setItem("chikota-theme", "light");
-        }
+        themeStore.set(theme);
     }
 
     const themeOptions = [
-        { value: "light", label: "Light", icon: Sun },
-        { value: "dark", label: "Dark", icon: Moon },
-        { value: "system", label: "System", icon: Monitor },
+        { value: "light", label: "Paper", icon: Sun },
+        { value: "forest", label: "Forest", icon: Moon },
+        { value: "ember", label: "Ember", icon: Monitor },
     ] as const;
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 max-w-4xl mx-auto p-8">
     <!-- Page Header -->
     <header class="space-y-2">
         <div class="flex items-center gap-3">

@@ -11,7 +11,7 @@
         categoryColorClasses,
     } from "$lib/stores/categories";
     import Spinner from "$lib/components/Spinner.svelte";
-    import { Plus, X, Link, Bookmark as BookmarkIcon } from "lucide-svelte";
+    import { Plus, X, Link, Bookmark as BookmarkIcon } from "$lib/components/icons/radix";
     import { toast } from "svelte-sonner";
     import type { Tag, Bookmark } from "$lib/types";
 

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Popover, Calendar } from "bits-ui";
-    import { Bell, Clock, Calendar as CalendarIcon, X } from "lucide-svelte";
+    import { Bell, Clock, Calendar as CalendarIcon, X } from "$lib/components/icons/radix";
     import { Button } from "$lib/components/ui/button";
     import { cn } from "$lib/utils";
     import {
@@ -42,7 +42,7 @@
               })
             : "09:00",
     );
-    let email = $state(existingEmail || "");
+    let email = $derived(existingEmail || "");
     let isOpen = $state(false);
 
     const df = new DateFormatter("en-US", {

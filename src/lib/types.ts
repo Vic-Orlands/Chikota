@@ -20,5 +20,5 @@ export interface Category {
     id: string;
     name: string;
     color: 'emerald' | 'violet' | 'amber' | 'rose' | 'sky';
-    icon: string; // lucide icon name
+    icon: string;
 }

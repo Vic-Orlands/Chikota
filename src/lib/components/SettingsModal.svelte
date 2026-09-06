@@ -12,40 +12,21 @@
         ExternalLink,
         Bell,
         BellOff,
-    } from "lucide-svelte";
+    } from "$lib/components/icons/radix";
+    import { themeStore } from "$lib/stores/theme.svelte";
     import { onMount } from "svelte";
     import { bookmarks } from "$lib/stores/bookmarks";
 
     let open = $state(false);
-    let currentTheme = $state<"light" | "dark" | "system">("system");
+    let currentTheme = $derived(themeStore.current);
 
     onMount(() => {
-        const stored = localStorage.getItem("chikota-theme");
-        if (stored === "dark" || stored === "light") {
-            currentTheme = stored;
-        }
+
     });
 
-    function setTheme(theme: "light" | "dark" | "system") {
+    function setTheme(theme: "light" | "forest" | "ember") {
         currentTheme = theme;
-
-        if (theme === "system") {
-            const prefersDark = window.matchMedia(
-                "(prefers-color-scheme: dark)",
-            ).matches;
-            if (prefersDark) {
-                document.documentElement.classList.add("dark");
-            } else {
-                document.documentElement.classList.remove("dark");
-            }
-            localStorage.removeItem("chikota-theme");
-        } else if (theme === "dark") {
-            document.documentElement.classList.add("dark");
-            localStorage.setItem("chikota-theme", "dark");
-        } else {
-            document.documentElement.classList.remove("dark");
-            localStorage.setItem("chikota-theme", "light");
-        }
+        themeStore.set(theme);
     }
 
     function cancelAllReminders() {
@@ -53,9 +34,9 @@
     }
 
     const themeOptions = [
-        { value: "light", label: "Light", icon: Sun },
-        { value: "dark", label: "Dark", icon: Moon },
-        { value: "system", label: "System", icon: Monitor },
+        { value: "light", label: "Paper", icon: Sun },
+        { value: "forest", label: "Forest", icon: Moon },
+        { value: "ember", label: "Ember", icon: Monitor },
     ] as const;
 </script>
 

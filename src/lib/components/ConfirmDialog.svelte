@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as Dialog from "$lib/components/ui/dialog";
     import { Button } from "$lib/components/ui/button";
-    import { AlertTriangle } from "lucide-svelte";
+    import { AlertTriangle } from "$lib/components/icons/radix";
 
     let {
         open = $bindable(false),

@@ -2,7 +2,7 @@
     import * as Dialog from "$lib/components/ui/dialog";
     import { Button } from "$lib/components/ui/button";
     import { Badge } from "$lib/components/ui/badge";
-    import { Bell, Clock, X } from "lucide-svelte";
+    import { Bell, Clock, X } from "$lib/components/icons/radix";
     import { bookmarks } from "$lib/stores/bookmarks";
     import { format } from "date-fns";
     import { toast } from "svelte-sonner";

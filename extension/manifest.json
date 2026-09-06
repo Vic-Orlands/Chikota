@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Chikota — Save for a quieter moment",
+  "version": "1.0.0",
+  "description": "Save any website or link to your personal Chikota reading list from the right-click menu.",
+  "permissions": ["contextMenus", "storage", "activeTab"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "Save to Chikota" },
+  "options_ui": { "page": "options.html", "open_in_tab": true }
+}

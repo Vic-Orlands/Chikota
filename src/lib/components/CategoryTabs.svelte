@@ -29,12 +29,12 @@
         Phone,
         Settings,
         Trash2,
-    } from "lucide-svelte";
-    import type { ComponentType } from "svelte";
+    } from "$lib/components/icons/radix";
+    import type { Component } from "svelte";
     import { cn } from "$lib/utils";
     import AddCategoryDialog from "$lib/components/AddCategoryDialog.svelte";
 
-    const categoryIcons: Record<string, ComponentType> = {
+    const categoryIcons: Record<string, Component> = {
         User: User,
         Briefcase: Briefcase,
         Sparkles: Sparkles,
@@ -68,6 +68,7 @@
             {@const count = $bookmarkCounts[category.id] || 0}
             {@const Icon = categoryIcons[category.icon] || Hash}
 
+            <div class="flex items-center">
             <button
                 onclick={() => activeCategoryId.set(category.id)}
                 class={cn(
@@ -94,6 +95,13 @@
                     </span>
                 {/if}
 
+                <!-- Active indicator dot -->
+                {#if isActive}
+                    <div
+                        class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-current opacity-60"
+                    ></div>
+                {/if}
+            </button>
                 <!-- Delete button for non-All categories -->
                 {#if category.id !== 'all'}
                     <button
@@ -108,13 +116,7 @@
                     </button>
                 {/if}
 
-                <!-- Active indicator dot -->
-                {#if isActive}
-                    <div
-                        class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-current opacity-60"
-                    ></div>
-                {/if}
-            </button>
+            </div>
         {/each}
 
         <!-- Add category button -->

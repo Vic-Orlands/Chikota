@@ -29,7 +29,7 @@
         Phone,
         Settings,
         Plus,
-    } from "lucide-svelte";
+    } from "$lib/components/icons/radix";
 
     let open = false;
     let name = "";

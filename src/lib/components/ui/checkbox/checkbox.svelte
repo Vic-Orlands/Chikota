@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Checkbox as CheckboxPrimitive } from "bits-ui";
-    import { Check } from "lucide-svelte";
+    import { Check } from "$lib/components/icons/radix";
     import { cn } from "$lib/utils";
 
     let {
@@ -20,9 +20,7 @@
     )}
     {...restProps}
 >
-    <CheckboxPrimitive.Indicator
-        class={cn("flex items-center justify-center text-current")}
-    >
-        <Check class="h-3.5 w-3.5" />
-    </CheckboxPrimitive.Indicator>
+    {#snippet children({ checked, indeterminate })}
+        {#if checked || indeterminate}<Check class="h-3.5 w-3.5" />{/if}
+    {/snippet}
 </CheckboxPrimitive.Root>

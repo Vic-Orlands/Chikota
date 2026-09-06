@@ -1,6 +1,6 @@
-import { json } from "@sveltejs/kit";
-import { Resend } from "resend";
-import { auth } from "$lib/auth";
+import { json } from '@sveltejs/kit';
+import { Resend } from 'resend';
+import { auth } from '$lib/auth';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -12,8 +12,8 @@ function bookmarkReminderEmailHTML(
     savedDate?: string;
   }
 ) {
-  const name = user.name || "there";
-  const savedDate = bookmark.savedDate || "recently";
+  const name = user.name || 'there';
+  const savedDate = bookmark.savedDate || 'recently';
 
   return `
     <!DOCTYPE html>
@@ -203,42 +203,74 @@ function bookmarkReminderEmailHTML(
 }
 
 export const POST = async ({ request }) => {
-    const session = await auth.api.getSession({ headers: request.headers });
-    if (!session) {
-        return json({ error: "Unauthorized" }, { status: 401 });
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session)
+    return json({ error: 'Sign in to use email reminders' }, { status: 401 });
+
+  const { email, title, url, reminderAt } = await request.json();
+
+  if (!email || !title || !url || !reminderAt) {
+    return json({ error: 'Missing required fields' }, { status: 400 });
+  }
+
+  const scheduledAt = new Date(reminderAt);
+  const delay = +scheduledAt - Date.now();
+  if (Number.isNaN(+scheduledAt) || delay <= 0) {
+    return json({ error: 'Choose a future reminder time' }, { status: 400 });
+  }
+  if (delay > 30 * 24 * 60 * 60 * 1000) {
+    return json(
+      { error: 'Email reminders can be scheduled up to 30 days ahead' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const html = bookmarkReminderEmailHTML(
+      { email, name: session.user.name },
+      {
+        title,
+        url,
+        savedDate: new Date().toLocaleDateString()
+      }
+    );
+
+    const { data, error } = await resend.emails.send({
+      from: 'Chikọta <contact@mezie.dev>',
+      to: [email],
+      subject: `Time to Revisit: ${title}`,
+      html,
+      scheduledAt: scheduledAt.toISOString()
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return json({ error: 'Failed to send email' }, { status: 500 });
     }
 
-    const { email, title, url, reminderAt } = await request.json();
+    return json({
+      success: true,
+      id: data?.id,
+      scheduledAt: scheduledAt.toISOString()
+    });
+  } catch (err) {
+    console.error('Email send error:', err);
+    return json({ error: 'Internal server error' }, { status: 500 });
+  }
+};
 
-    if (!email || !title || !url || !reminderAt) {
-        return json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    try {
-        const html = bookmarkReminderEmailHTML(
-            { email, name: session.user.name },
-            {
-                title,
-                url,
-                savedDate: new Date().toLocaleDateString()
-            }
-        );
-
-        const { data, error } = await resend.emails.send({
-            from: "Chikọta <contact@mezie.dev>",
-            to: [email],
-            subject: `Time to Revisit: ${title}`,
-            html,
-        });
-
-        if (error) {
-            console.error("Resend error:", error);
-            return json({ error: "Failed to send email" }, { status: 500 });
-        }
-
-        return json({ success: true, id: data?.id });
-    } catch (err) {
-        console.error("Email send error:", err);
-        return json({ error: "Internal server error" }, { status: 500 });
-    }
+export const DELETE = async ({ request }) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await request.json();
+  if (!id || typeof id !== 'string') {
+    return json({ error: 'Missing scheduled email id' }, { status: 400 });
+  }
+  const { error } = await resend.emails.cancel(id);
+  if (error)
+    return json(
+      { error: 'Could not cancel the email reminder' },
+      { status: 500 }
+    );
+  return json({ success: true });
 };

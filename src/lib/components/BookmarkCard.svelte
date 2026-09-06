@@ -10,7 +10,7 @@
         Clock,
         Copy,
         CircleCheckBig,
-    } from "lucide-svelte";
+    } from "$lib/components/icons/radix";
     import { bookmarks } from "$lib/stores/bookmarks";
     import { categories, categoryColorClasses } from "$lib/stores/categories";
     import { format } from "date-fns";
@@ -78,7 +78,6 @@
         {#if isSelectionMode}
             <div
                 class="absolute top-3 left-3 z-10"
-                onclick={(e) => e.stopPropagation()}
             >
                 <Checkbox
                     checked={isSelected}
@@ -224,7 +223,7 @@
         )}
     >
         {#if isSelectionMode}
-            <div class="pl-2" onclick={(e) => e.stopPropagation()}>
+            <div class="pl-2">
                 <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onSelect?.(bookmark.id)}
