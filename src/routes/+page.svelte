@@ -96,9 +96,6 @@
   let dialog: HTMLDialogElement;
   let searchInput = $state<HTMLInputElement>();
   let commandTrigger = $state<HTMLButtonElement>();
-  let libraryView = $state<HTMLElement>();
-  let libraryAnimation: Animation | null = null;
-  let navigationVersion = 0;
   let commandPosition = $state({ top: 0, left: 0, width: 0 });
   let editing = $state<Bookmark | null>(null);
   let url = $state('');
@@ -313,72 +310,13 @@
       return value;
     }
   }
-  async function navigate(value: string) {
-    const version = ++navigationVersion;
-    const updateSection = () => {
-      section = value;
-      selected = [];
-      selectedCollections = [];
-      selectMode = false;
-      bookmarkSelectionAnchor = null;
-      collectionSelectionAnchor = null;
-    };
-    const switchesLibraryView = (section === 'opened') !== (value === 'opened');
-    if (
-      !switchesLibraryView ||
-      !libraryView ||
-      typeof libraryView.animate !== 'function' ||
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
-      libraryAnimation?.cancel();
-      libraryAnimation = null;
-      updateSection();
-      return;
-    }
-    const currentStyle = getComputedStyle(libraryView);
-    libraryAnimation?.cancel();
-    const outgoing = libraryView.animate(
-      [
-        {
-          opacity: currentStyle.opacity,
-          transform: currentStyle.transform
-        },
-        { opacity: 0, transform: 'translateY(-4px)' }
-      ],
-      { duration: 100, easing: 'ease-out', fill: 'forwards' }
-    );
-    libraryAnimation = outgoing;
-    try {
-      await outgoing.finished;
-    } catch {
-      return;
-    }
-    if (version !== navigationVersion) return;
-    updateSection();
-    await tick();
-    if (version !== navigationVersion) return;
-    outgoing.cancel();
-    const incoming = libraryView.animate(
-      [
-        { opacity: 0, transform: 'translateY(6px)' },
-        { opacity: 1, transform: 'translateY(0)' }
-      ],
-      {
-        duration: 170,
-        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        fill: 'forwards'
-      }
-    );
-    libraryAnimation = incoming;
-    try {
-      await incoming.finished;
-    } catch {
-      return;
-    }
-    if (version === navigationVersion) {
-      incoming.cancel();
-      libraryAnimation = null;
-    }
+  function navigate(value: string) {
+    section = value;
+    selected = [];
+    selectedCollections = [];
+    selectMode = false;
+    bookmarkSelectionAnchor = null;
+    collectionSelectionAnchor = null;
   }
   async function openModal(
     value: NonNullable<typeof modal>,
@@ -1179,7 +1117,7 @@
       </DropdownMenu.Root>
     </div>
   </header>
-  <main bind:this={libraryView} class="library-view">
+  <main>
     <section
       data-tour="collections"
       class="collection-section ruled-section"
