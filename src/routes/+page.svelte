@@ -15,6 +15,7 @@
   import { toast } from 'svelte-sonner';
   import EmptyMono from '$lib/components/EmptyMono.svelte';
   import WelcomeGuide from '$lib/components/WelcomeGuide.svelte';
+  import LandingPage from '$lib/components/LandingPage.svelte';
   import {
     Search,
     MixerVertical,
@@ -55,6 +56,8 @@
   type SettingsTab = 'appearance' | 'reminders' | 'about';
 
   let { data } = $props();
+  let guestView = $state<'pending' | 'landing' | 'library'>('pending');
+  let view = $derived(data.session ? 'library' : guestView);
   let section = $state('all');
   let ready = $state(false);
   let guideOpen = $state(false);
@@ -64,6 +67,15 @@
     try {
       localStorage.setItem(guideKey, 'seen');
     } catch {}
+  }
+  function enterLibrary() {
+    try {
+      localStorage.setItem('chikota-entered', '1');
+    } catch {
+      /* entering still works if storage is unavailable */
+    }
+    guestView = 'library';
+    if (!ready) void initialize().then(checkReminders);
   }
   let loadError = $state('');
   let saving = $state(false);
@@ -227,7 +239,28 @@
     } catch {
       reminderStates = {};
     }
-    void initialize().then(checkReminders);
+    const incomingSave = Boolean(
+      new URLSearchParams(location.search).get('save')
+    );
+    let shouldOpen = Boolean(data.session) || incomingSave;
+    if (!shouldOpen) {
+      try {
+        shouldOpen = localStorage.getItem('chikota-entered') === '1';
+        if (!shouldOpen) {
+          const saved = localStorage.getItem('chikota-bookmarks');
+          const parsed = saved ? JSON.parse(saved) : [];
+          shouldOpen = Array.isArray(parsed) && parsed.length > 0;
+        }
+      } catch {
+        shouldOpen = false;
+      }
+    }
+    if (shouldOpen) {
+      guestView = 'library';
+      void initialize().then(checkReminders);
+    } else {
+      guestView = 'landing';
+    }
     try {
       guideOpen = localStorage.getItem(guideKey) !== 'seen';
     } catch {
@@ -905,6 +938,7 @@
     selected = [...new Set([...dragBase, ...hits])];
   }
   function keyboard(event: KeyboardEvent) {
+    if (view !== 'library') return;
     if (
       event.defaultPrevented ||
       (event.target as HTMLElement).closest('[role="menu"]')
@@ -1013,11 +1047,19 @@
   }
 </script>
 
-<svelte:head><title>chikota — your reading room</title></svelte:head>
+<svelte:head
+  >{#if view === 'library'}<title>chikota — your reading room</title>{/if}</svelte:head
+>
 <svelte:window
   onkeydown={keyboard}
-  oncontextmenu={showContext}
-  onpointerdown={closeListToolsOutside}
+  oncontextmenu={(event) => {
+    if (view !== 'library') return;
+    showContext(event);
+  }}
+  onpointerdown={(event) => {
+    if (view !== 'library') return;
+    closeListToolsOutside(event);
+  }}
   onpointermove={moveDrag}
   onpointerup={() => {
     drag = null;
@@ -1027,6 +1069,11 @@
   }}
 />
 
+{#if view === 'pending'}
+  <p class="sr-only">loading chikota</p>
+{:else if view === 'landing'}
+  <LandingPage onenter={enterLibrary} />
+{:else if view === 'library'}
 <div class="reading-column">
   <header class="reading-header">
     <a class="wordmark" href="/" aria-label="chikota home"><h1>chikota</h1></a>
@@ -2084,3 +2131,4 @@
   suspended={modal !== null}
   ondismiss={dismissGuide}
 />
+{/if}
