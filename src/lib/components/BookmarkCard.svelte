@@ -56,7 +56,7 @@
         isDeleting = true;
         setTimeout(() => {
             bookmarks.removeBookmark(bookmark.id);
-            toast.success("Bookmark deleted");
+            toast.success("bookmark deleted");
         }, 150);
     }
 
@@ -159,7 +159,7 @@
                         reminderEmail: email,
                     });
                     toast.success(
-                        "Reminder set for " + format(date, "MMM d, h:mm a"),
+                        "reminder set for " + format(date, "MMM d, h:mm a"),
                     );
                 }}
             >
@@ -189,7 +189,7 @@
                                 class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full animate-pulse ring-2 ring-background"
                             ></span>
                         {:else}
-                            <span>Remind</span>
+                            <span>remind</span>
                         {/if}
                     </button>
                 {/snippet}
@@ -202,7 +202,7 @@
                 onclick={() => onEdit(bookmark)}
             >
                 <Pencil class="w-4 h-4" />
-                <span>Edit</span>
+                <span>edit</span>
             </button>
 
             <button
@@ -210,7 +210,7 @@
                 onclick={handleDelete}
             >
                 <Trash2 class="w-4 h-4" />
-                <span>Delete</span>
+                <span>delete</span>
             </button>
         </div>
     </div>
@@ -320,8 +320,8 @@
 
 <ConfirmDialog
     bind:open={showDeleteConfirm}
-    title="Delete Bookmark"
-    description="Are you sure you want to delete this bookmark? This action cannot be undone."
-    confirmText="Delete"
+    title="delete bookmark"
+    description="are you sure you want to delete this bookmark? this action cannot be undone."
+    confirmText="delete"
     onConfirm={confirmDelete}
 />

@@ -2,7 +2,10 @@
   color-scheme: light dark;
 }
 body {
-  font: 14px/1.7 system-ui;
+  font: 14px/1.7 'IBM Plex Sans', sans-serif;
+  font-optical-sizing: auto;
+  font-variation-settings: "wdth" 100;
+  text-transform: lowercase;
   margin: 0;
   background: light-dark(#f8f9f8, #0c1510);
   color: light-dark(#252824, #e6ebe5);
@@ -12,13 +15,18 @@ main {
   margin: 80px auto;
   padding: 24px;
 }
+h1, h2 {
+  font-family: "Ruthie", cursive;
+  font-weight: 400;
+  font-style: normal;
+}
 h1 {
-  letter-spacing: -1.5px;
-  font-size: 32px;
+  letter-spacing: normal;
+  font-size: 44px;
 }
 h2 {
-  font-weight: 500;
-  font-size: 24px;
+  font-weight: 400;
+  font-size: 34px;
 }
 p {
   opacity: 0.75;

@@ -2,8 +2,9 @@
 @import 'tw-animate-css';
 @custom-variant dark (&:is(.dark *));
 @theme inline {
+  --font-heading: 'Ruthie', cursive;
   --font-sans:
-    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -86,16 +87,32 @@
 }
 body {
   margin: 0;
+  text-transform: lowercase;
   background: var(--background);
   color: var(--foreground);
   font-family:
-    'Inter',
+    'IBM Plex Sans',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
+  font-optical-sizing: auto;
+  font-variation-settings: 'wdth' 100;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+[data-slot='dialog-title'],
+[data-slot='card-title'] {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: normal;
 }
 button,
 input,
@@ -163,9 +180,9 @@ svg {
   width: fit-content;
 }
 .wordmark h1 {
-  font-size: 17px;
-  font-weight: 550;
-  letter-spacing: -0.4px;
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: normal;
   margin: 0;
 }
 .wordmark svg {
@@ -246,34 +263,11 @@ svg {
   background: var(--secondary);
   color: var(--foreground);
 }
-.icon-button.round {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-}
 .icon-button.small {
   width: 24px;
   height: 24px;
 }
-.command-shortcut {
-  position: absolute;
-  left: calc(100% + 4px);
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: transparent;
-  padding: 5px 7px;
-  color: var(--muted-foreground);
-  font-size: 8px;
-  white-space: nowrap;
-}
-.command-shortcut:hover {
-  color: var(--foreground);
-}
+
 .ruled-section {
   position: relative;
   padding: 0 10px 8px;
@@ -310,8 +304,8 @@ body {
   color: var(--muted-foreground);
 }
 h2 {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 25px;
+  font-weight: 400;
   margin: 0;
 }
 .count {
@@ -487,6 +481,8 @@ h2 {
   box-shadow: inset 0 0 0 1px var(--accent-text);
 }
 .section-empty {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -495,17 +491,7 @@ h2 {
   text-align: center;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background:
-    linear-gradient(
-      to bottom,
-      transparent 25%,
-      color-mix(in srgb, var(--foreground) 10%, transparent) 100%
-    ),
-    repeating-linear-gradient(
-      125deg,
-      transparent 0 3px,
-      var(--soft-border) 3px 4px
-    );
+  background: var(--sidebar);
   padding: 16px 12px;
 }
 .section-empty strong {
@@ -541,14 +527,80 @@ h2 {
 .library-section {
   position: relative;
 }
-.list-actions-rail {
-  position: absolute;
-  z-index: 2;
-  top: 8px;
-  left: calc(100% + 10px);
+.list-options-trigger:focus-visible,
+.header-actions .icon-button:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+.list-options {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
+}
+.list-options-rail {
+  position: absolute;
+  left: calc(100% + 7px);
+  top: 50%;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: max-content;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.list-options-rail .plain-button {
+  opacity: 0;
+  transform: translateX(-9px) scale(0.97);
+  background: var(--background);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.list-options-rail.open {
+  pointer-events: auto;
+}
+.list-options-rail.open .plain-button {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+.list-options-trigger[aria-expanded='true'] {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.list-options-menu {
+  z-index: 51;
+  min-width: 160px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--shadow);
+  transform-origin: var(--bits-floating-transform-origin);
+  will-change: transform, opacity;
+}
+.list-options-menu[data-state='open'] {
+  animation: account-menu-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.list-options-menu[data-state='closed'] {
+  animation: account-menu-out 120ms ease-out both;
+}
+.list-options-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.list-options-item[data-highlighted],
+.list-options-item[data-state='checked'] {
+  background: var(--secondary);
+}
+.list-options-item[data-disabled] {
+  opacity: 0.5;
+  cursor: default;
 }
 .date-group {
   position: relative;
@@ -640,7 +692,7 @@ h2 {
   background: transparent;
   display: grid;
   place-items: center;
-  font-family: Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
   color: var(--foreground);
@@ -772,15 +824,7 @@ h2 {
 .is-read .bookmark-title {
   color: var(--muted-foreground);
 }
-.interaction-hint {
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 48px;
-  width: max-content;
-  margin: 0;
-  font-size: 10px;
-  color: var(--muted-foreground);
-}
+
 .collapse-grid {
   display: grid;
   grid-template-rows: 0fr;
@@ -926,6 +970,8 @@ h2 {
   position: absolute;
   top: 16px;
   right: 16px;
+  width: 32px;
+  height: 32px;
 }
 .dialog-symbol {
   display: grid;
@@ -939,10 +985,10 @@ h2 {
 }
 .dialog-inner h2 {
   margin: 0;
-  font-size: 18px;
-  line-height: 1.25;
-  letter-spacing: -0.35px;
-  font-weight: 500;
+  font-size: 34px;
+  line-height: 1.2;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 .dialog-description {
   margin: 5px 0 18px;
@@ -1009,6 +1055,16 @@ form textarea::placeholder {
   margin-top: 23px;
   padding-top: 20px;
   border-top: 1px solid var(--border);
+}
+.bookmark-form .dialog-actions,
+.collection-form .dialog-actions {
+  padding-top: 0;
+  border-top: 0;
+}
+.dialog-actions > button {
+  height: 32px;
+  min-height: 32px;
+  line-height: 1;
 }
 .settings-label {
   font-size: 9px;
@@ -1204,7 +1260,7 @@ form textarea::placeholder {
   height: 28px;
   flex: 0 0 28px;
   overflow: hidden;
-  font-family: Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 12px;
 }
 .reminder-favicon img {
@@ -1216,7 +1272,7 @@ form textarea::placeholder {
 }
 .reminder-status {
   margin-left: 3px;
-  text-transform: capitalize;
+  text-transform: lowercase;
 }
 .reminder-item.done,
 .reminder-item.canceled {
@@ -1419,7 +1475,7 @@ form textarea::placeholder {
   font-size: 9px;
   font-weight: 550;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 .command-results > button,
 .command-results > a {
@@ -1476,7 +1532,7 @@ form textarea::placeholder {
   flex: 0 0 25px;
   border: 1px solid var(--border);
   border-radius: 5px;
-  font-family: Georgia, serif;
+  font-family: var(--font-sans);
 }
 .extension-demo {
   background: var(--sidebar);
@@ -1548,6 +1604,26 @@ form textarea::placeholder {
     transform: translateY(0) scale(1);
   }
 }
+@keyframes account-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes account-menu-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
 @media (max-width: 760px) {
   .reading-column {
     width: calc(100% - 28px);
@@ -1573,8 +1649,10 @@ form textarea::placeholder {
   }
 }
 @media (max-width: 1060px) {
-  .list-actions-rail {
-    position: static;
+  .list-options-rail {
+    right: 0;
+    left: auto;
+    top: calc(100% + 7px);
     transform: none;
   }
   .date-heading {
@@ -1584,12 +1662,6 @@ form textarea::placeholder {
   }
   .date-group.collapsed {
     min-height: 0;
-  }
-  .interaction-hint {
-    position: static;
-    width: auto;
-    padding: 0 0 8px;
-    text-align: right;
   }
 }
 @media (max-width: 520px) {
@@ -1611,15 +1683,9 @@ form textarea::placeholder {
     grid-row: 1;
   }
   .wordmark h1 {
-    font-size: 16px;
+    font-size: 30px;
   }
-  .command-shortcut {
-    left: auto;
-    right: 10px;
-    top: calc(100% + 8px);
-    transform: none;
-    z-index: 3;
-  }
+
   .ruled-section {
     padding-inline: 10px;
   }
@@ -1644,7 +1710,7 @@ form textarea::placeholder {
   }
   .section-toggle h2,
   .library-title h2 {
-    font-size: 12px;
+    font-size: 24px;
   }
   .plain-button {
     padding: 6px 4px;
@@ -1661,9 +1727,6 @@ form textarea::placeholder {
     width: 100%;
     justify-content: flex-end;
     gap: 10px;
-  }
-  .list-actions-rail {
-    margin-right: auto;
   }
   .bookmark-row {
     gap: 10px;
@@ -1706,6 +1769,30 @@ form textarea::placeholder {
   }
 }
 @media (prefers-reduced-motion: no-preference) {
+  .list-options-rail .plain-button {
+    transition:
+      opacity 150ms ease-out,
+      transform 190ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 140ms ease;
+  }
+  .list-options-rail .plain-button:nth-child(1) {
+    transition-delay: 90ms;
+  }
+  .list-options-rail .plain-button:nth-child(2) {
+    transition-delay: 45ms;
+  }
+  .list-options-rail .plain-button:nth-child(3) {
+    transition-delay: 0ms;
+  }
+  .list-options-rail.open .plain-button:nth-child(1) {
+    transition-delay: 0ms;
+  }
+  .list-options-rail.open .plain-button:nth-child(2) {
+    transition-delay: 45ms;
+  }
+  .list-options-rail.open .plain-button:nth-child(3) {
+    transition-delay: 90ms;
+  }
   button,
   .primary-button,
   .secondary-button {
@@ -1735,13 +1822,17 @@ form textarea::placeholder {
 }
 @media (prefers-reduced-motion: reduce) {
   .context-menu,
-  .app-dialog[open] {
+  .app-dialog[open],
+  .list-options-menu[data-state] {
     animation: none;
   }
   button,
   .tab-indicator,
   .collapse-grid,
   .chevron {
+    transition: none;
+  }
+  .list-options-rail .plain-button {
     transition: none;
   }
 }

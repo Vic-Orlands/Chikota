@@ -15,13 +15,13 @@
             <h1
                 class="text-4xl sm:text-6xl font-bold tracking-tight text-foreground"
             >
-                Your Bookmarks, <br />
-                <span class="text-primary"> Intelligently Organized. </span>
+                your bookmarks, <br />
+                <span class="text-primary"> intelligently organized. </span>
             </h1>
             <p
                 class="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto"
             >
-                Stop losing links in browser folders. Experience a modern,
+                stop losing links in browser folders. experience a modern,
                 beautiful way to save specifically designed for developers and
                 designers.
             </p>
@@ -53,7 +53,7 @@
                             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                         />
                     </svg>
-                    Sign in with Google
+                    sign in with google
                 </Button>
             </div>
         </div>
@@ -64,9 +64,9 @@
             <div
                 class="p-6 rounded-2xl bg-secondary/30 border border-border/50 backdrop-blur-sm hover:bg-secondary/50 transition-colors"
             >
-                <h3 class="font-semibold text-lg mb-2">Smart Categorization</h3>
+                <h3 class="font-semibold text-lg mb-2">smart categorization</h3>
                 <p class="text-sm text-muted-foreground">
-                    Automatically sorts your links into Development, Design, AI,
+                    automatically sorts your links into development, design, ai,
                     and more.
                 </p>
             </div>
@@ -74,9 +74,9 @@
             <div
                 class="p-6 rounded-2xl bg-secondary/30 border border-border/50 backdrop-blur-sm hover:bg-secondary/50 transition-colors"
             >
-                <h3 class="font-semibold text-lg mb-2">Smart Reminders</h3>
+                <h3 class="font-semibold text-lg mb-2">smart reminders</h3>
                 <p class="text-sm text-muted-foreground">
-                    Set "read later" reminders and never forget an article
+                    set "read later" reminders and never forget an article
                     again.
                 </p>
             </div>
@@ -84,17 +84,17 @@
             <div
                 class="p-6 rounded-2xl bg-secondary/30 border border-border/50 backdrop-blur-sm hover:bg-secondary/50 transition-colors"
             >
-                <h3 class="font-semibold text-lg mb-2">Beautiful Interface</h3>
+                <h3 class="font-semibold text-lg mb-2">beautiful interface</h3>
                 <p class="text-sm text-muted-foreground">
-                    A clean, dark-mode first design that feels right at home.
+                    a clean, dark-mode first design that feels right at home.
                 </p>
             </div>
             <div
                 class="p-6 rounded-2xl bg-secondary/30 border border-border/50 backdrop-blur-sm hover:bg-secondary/50 transition-colors"
             >
-                <h3 class="font-semibold text-lg mb-2">Visual Cards</h3>
+                <h3 class="font-semibold text-lg mb-2">visual cards</h3>
                 <p class="text-sm text-muted-foreground">
-                    Rich previews with persistent favicons and summaries.
+                    rich previews with persistent favicons and summaries.
                 </p>
             </div>
         </div>

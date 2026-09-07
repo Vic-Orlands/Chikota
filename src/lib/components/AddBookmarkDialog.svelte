@@ -68,7 +68,7 @@
             selectedCategoryId = $activeCategoryId;
             dataFetched = true;
         } catch (error) {
-            toast.error("Invalid URL format");
+            toast.error("invalid url format");
         } finally {
             isLoading = false;
         }
@@ -85,7 +85,7 @@
                 tags,
                 categoryId: selectedCategoryId || $activeCategoryId,
             });
-            toast.success("Bookmark updated!");
+            toast.success("bookmark updated!");
         } else {
             bookmarks.addBookmark({
                 id: crypto.randomUUID(),
@@ -96,7 +96,7 @@
                 categoryId: selectedCategoryId || $activeCategoryId,
                 createdAt: new Date(),
             });
-            toast.success("Bookmark saved!");
+            toast.success("bookmark saved!");
         }
 
         open = false;
@@ -145,7 +145,7 @@
                        transition-all duration-200 btn-click-effect gap-1.5"
             >
                 <Plus class="h-3.5 w-3.5" />
-                Add Bookmark
+                add bookmark
             </Button>
         </Dialog.Trigger>
     {/if}
@@ -160,10 +160,10 @@
                 >
                     <BookmarkIcon class="h-3.5 w-3.5 text-primary" />
                 </div>
-                {mode === "edit" ? "Edit Bookmark" : "Add Bookmark"}
+                {mode === "edit" ? "edit bookmark" : "add bookmark"}
             </Dialog.Title>
             <Dialog.Description class="text-[11px] text-muted-foreground">
-                Paste a URL to save and organize
+                paste a url to save and organize
             </Dialog.Description>
         </Dialog.Header>
 
@@ -193,7 +193,7 @@
                         {#if isLoading}
                             <Spinner size="xs" color="primary" />
                         {:else}
-                            Fetch
+                            fetch
                         {/if}
                     </Button>
                 {:else}
@@ -203,7 +203,7 @@
                         onclick={reset}
                         class="h-8 text-xs px-3"
                     >
-                        Clear
+                        clear
                     </Button>
                 {/if}
             </div>
@@ -220,7 +220,7 @@
                         <Spinner size="md" color="primary" />
                     </div>
                     <p class="text-[11px] text-muted-foreground">
-                        Fetching page info...
+                        fetching page info...
                     </p>
                 </div>
             {/if}
@@ -235,7 +235,7 @@
                         <Label
                             for="title"
                             class="text-[11px] text-muted-foreground"
-                            >Title</Label
+                            >title</Label
                         >
                         <Input
                             id="title"
@@ -249,7 +249,7 @@
                         <Label
                             for="summary"
                             class="text-[11px] text-muted-foreground"
-                            >Description (optional)</Label
+                            >description (optional)</Label
                         >
                         <textarea
                             id="summary"
@@ -257,7 +257,7 @@
                                    px-2.5 py-2 text-xs ring-offset-background placeholder:text-muted-foreground
                                    focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring
                                    disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-colors"
-                            placeholder="Add a brief description..."
+                            placeholder="add a brief description..."
                             bind:value={summary}
                         ></textarea>
                     </div>
@@ -265,7 +265,7 @@
                     <!-- Category -->
                     <div class="space-y-1.5">
                         <Label class="text-[11px] text-muted-foreground"
-                            >Category</Label
+                            >category</Label
                         >
                         <div class="flex flex-wrap gap-1.5">
                             {#each $categories as cat}
@@ -292,7 +292,7 @@
                     <!-- Tags -->
                     <div class="space-y-1.5">
                         <Label class="text-[11px] text-muted-foreground"
-                            >Tags</Label
+                            >tags</Label
                         >
                         <div class="flex flex-wrap gap-1.5">
                             {#each tags as tag}
@@ -310,7 +310,7 @@
                             {/each}
                             <div class="flex items-center gap-1">
                                 <Input
-                                    placeholder="Add tag..."
+                                    placeholder="add tag..."
                                     bind:value={newTagInput}
                                     onkeydown={handleTagKeydown}
                                     class="h-6 w-20 text-[10px] px-2 border-dashed"
@@ -339,7 +339,7 @@
                     onclick={handleSave}
                     disabled={!title || !url}
                 >
-                    Save {mode === "edit" ? "Changes" : "Bookmark"}
+                    save {mode === "edit" ? "changes" : "bookmark"}
                 </Button>
             </div>
         {/if}

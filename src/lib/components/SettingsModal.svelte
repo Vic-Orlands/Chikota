@@ -34,9 +34,9 @@
     }
 
     const themeOptions = [
-        { value: "light", label: "Paper", icon: Sun },
-        { value: "forest", label: "Forest", icon: Moon },
-        { value: "ember", label: "Ember", icon: Monitor },
+        { value: "light", label: "paper", icon: Sun },
+        { value: "forest", label: "forest", icon: Moon },
+        { value: "ember", label: "ember", icon: Monitor },
     ] as const;
 </script>
 
@@ -64,7 +64,7 @@
                 >
                     <Settings class="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-                Settings
+                settings
             </Dialog.Title>
         </Dialog.Header>
 
@@ -72,10 +72,10 @@
             <!-- Appearance -->
             <div class="space-y-2.5">
                 <div
-                    class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+                    class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
                 >
                     <Palette class="h-3 w-3" />
-                    Appearance
+                    appearance
                 </div>
 
                 <div class="grid grid-cols-3 gap-2">
@@ -101,10 +101,10 @@
              <!-- Reminders -->
              <div class="space-y-2.5">
                  <div
-                     class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+                     class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
                  >
                      <Bell class="h-3 w-3" />
-                     Reminders
+                     reminders
                  </div>
 
                  <Button
@@ -114,27 +114,27 @@
                      onclick={cancelAllReminders}
                  >
                      <BellOff class="h-3 w-3 mr-2" />
-                     Cancel All Reminders
+                     cancel all reminders
                  </Button>
              </div>
 
              <!-- About -->
             <div class="space-y-2.5">
                 <div
-                    class="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                    class="flex items-center gap-2 text-xs font-medium text-muted-foreground lowercase tracking-wider"
                 >
                     <Info class="h-3 w-3" />
-                    About
+                    about
                 </div>
 
                 <div class="rounded-lg bg-secondary/30 p-3 space-y-2">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium">Chikọta</span>
+                        <span class="text-xs font-medium">chikọta</span>
                         <span class="text-xs text-muted-foreground">v1.0.0</span
                         >
                     </div>
                     <p class="text-xs text-muted-foreground leading-relaxed">
-                        "Chikọta" is an Igbo word meaning "bring together" — a
+                        "chikọta" is an igbo word meaning "bring together" — a
                         simple, beautiful way to organize your bookmarks.
                     </p>
                 </div>
@@ -148,7 +148,7 @@
                 class="w-full h-8 text-xs btn-click-effect"
                 onclick={() => (open = false)}
             >
-                Done
+                done
             </Button>
         </div>
     </Dialog.Content>

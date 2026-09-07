@@ -10,8 +10,8 @@ document.querySelector('form').addEventListener('submit', async (event) => {
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
     await chrome.storage.local.set({ chikotaUrl: url.origin });
     status.textContent =
-      'Address saved. Right-click a website to save your first link.';
+      'address saved. right-click a website to save your first link.';
   } catch {
-    status.textContent = 'Enter a valid http or https address.';
+    status.textContent = 'enter a valid http or https address.';
   }
 });

@@ -27,7 +27,7 @@ function createBookmarkStore() {
       body: body === undefined ? undefined : JSON.stringify(body)
     });
     if (!res.ok)
-      throw new Error('Your changes could not be saved. Please try again.');
+      throw new Error('your changes could not be saved. please try again.');
     return res.json();
   }
   return {
@@ -40,7 +40,7 @@ function createBookmarkStore() {
         const saved = localStorage.getItem('chikota-bookmarks');
         const parsed = saved ? JSON.parse(saved) : [];
         if (!Array.isArray(parsed))
-          throw new Error('The saved reading list could not be loaded.');
+          throw new Error('the saved reading list could not be loaded.');
         state.set(parsed.map(normalize));
       }
     },

@@ -16,7 +16,7 @@ function createTagStore() {
                     set(data);
                 }
             } catch (err) {
-                console.error("Failed to fetch tags:", err);
+                console.error("failed to fetch tags:", err);
             }
         },
         addTag: async (tag: Partial<Tag>) => {
@@ -46,7 +46,7 @@ function createTagStore() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(data),
                 });
-                if (!res.ok) throw new Error("Failed to update tag");
+                if (!res.ok) throw new Error("failed to update tag");
             } catch (err) {
                 console.error(err);
                 // revert?
@@ -57,7 +57,7 @@ function createTagStore() {
             update(n => n.filter(t => t.id !== id));
             try {
                 const res = await fetch(`/api/tags/${id}`, { method: "DELETE" });
-                if (!res.ok) throw new Error("Failed to delete tag");
+                if (!res.ok) throw new Error("failed to delete tag");
             } catch (err) {
                 console.error(err);
                 set(oldState);

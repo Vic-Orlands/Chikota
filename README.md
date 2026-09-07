@@ -31,7 +31,7 @@ Google sign-in and account synchronization require a configured Google OAuth cli
 - Pin frequently used links and mark articles as read.
 - Drag from a row's blank space across bookmarks to select them. Hold Command, Control, or Shift to add to your selection. Checkboxes provide the keyboard and touch alternative.
 - Right-click a bookmark for open, edit, copy, pin, read, and delete actions. Right-click the app background for Open Chikota, Save a link, and New collection.
-- Choose Paper, Forest, or Ember in Appearance and settings. The preference survives reload without a light-theme flash.
+- Choose Paper, Forest, or Ember in settings. The preference survives reload without a light-theme flash.
 - Export a JSON backup from settings. The backup includes bookmarks, collections, pins, and reading status; automatic import is not implemented.
 
 ### Keyboard shortcuts

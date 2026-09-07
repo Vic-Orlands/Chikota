@@ -2,12 +2,12 @@
     let { size = "md" }: { size?: "sm" | "md" | "lg" } = $props();
 
     const sizes = {
-        sm: "text-lg",
-        md: "text-xl",
-        lg: "text-2xl",
+        sm: "text-3xl",
+        md: "text-4xl",
+        lg: "text-5xl",
     };
 </script>
 
 <div class="flex items-center gap-1.5 select-none {sizes[size]}">
-    <span class="font-bold tracking-tight text-primary"> Chikọta </span>
+    <span class="font-heading font-normal text-primary"> chikọta </span>
 </div>

@@ -54,7 +54,7 @@ test('installation registers both context actions without duplicate menus', asyn
   await h.events.install();
   assert.deepEqual(
     h.menus.map((m) => m.title),
-    ['Save to Chikota', 'Open Chikota']
+    ['save to chikota', 'open chikota']
   );
 });
 test('saving a page preserves its URL and title in the app handoff', async () => {

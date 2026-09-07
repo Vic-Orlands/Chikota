@@ -34,9 +34,9 @@
     }
 
     const themeOptions = [
-        { value: "light", label: "Paper", icon: Sun },
-        { value: "forest", label: "Forest", icon: Moon },
-        { value: "ember", label: "Ember", icon: Monitor },
+        { value: "light", label: "paper", icon: Sun },
+        { value: "forest", label: "forest", icon: Moon },
+        { value: "ember", label: "ember", icon: Monitor },
     ] as const;
 </script>
 
@@ -53,9 +53,9 @@
                 <ArrowLeft class="h-4 w-4" />
             </a>
             <div>
-                <h1 class="text-xl font-semibold tracking-tight">Settings</h1>
+                <h1 class="text-xl font-semibold tracking-tight">settings</h1>
                 <p class="text-xs text-muted-foreground">
-                    Customize your experience
+                    customize your experience
                 </p>
             </div>
         </div>
@@ -66,17 +66,17 @@
         <!-- Appearance Section -->
         <section class="space-y-3">
             <div
-                class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+                class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
             >
                 <Palette class="h-3 w-3" />
-                Appearance
+                appearance
             </div>
 
             <div
                 class="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm p-4"
             >
                 <Label class="text-xs text-muted-foreground mb-3 block"
-                    >Theme</Label
+                    >theme</Label
                 >
                 <div class="grid grid-cols-3 gap-2">
                     {#each themeOptions as option}
@@ -103,10 +103,10 @@
         <section class="space-y-3">
             <div class="flex items-center justify-between">
                 <div
-                    class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+                    class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
                 >
                     <Tags class="h-3 w-3" />
-                    Tags
+                    tags
                 </div>
                 {#if selectedTags.length > 0}
                     <Button
@@ -119,12 +119,12 @@
                             ) {
                                 tags.deleteTags(selectedTags);
                                 selectedTags = [];
-                                toast.success("Tags deleted");
+                                toast.success("tags deleted");
                             }
                         }}
                     >
                         <Trash2 class="h-3 w-3 mr-1" />
-                        Delete ({selectedTags.length})
+                        delete ({selectedTags.length})
                     </Button>
                 {/if}
             </div>
@@ -134,7 +134,7 @@
             >
                 {#if $tags.length === 0}
                     <div class="p-8 text-center text-muted-foreground text-xs">
-                        No tags yet. Add tags when creating bookmarks.
+                        no tags yet. add tags when creating bookmarks.
                     </div>
                 {:else}
                     <div class="divide-y divide-border/40">
@@ -177,7 +177,7 @@
                                                         });
                                                         editingTagId = null;
                                                         toast.success(
-                                                            "Tag updated",
+                                                            "tag updated",
                                                         );
                                                     } else if (
                                                         e.key === "Escape"
@@ -196,7 +196,7 @@
                                                     });
                                                     editingTagId = null;
                                                     toast.success(
-                                                        "Tag updated",
+                                                        "tag updated",
                                                     );
                                                 }}
                                             >
@@ -245,11 +245,11 @@
                                             class="h-8 w-8 hover:text-destructive"
                                             onclick={() => {
                                                 if (
-                                                    confirm("Delete this tag?")
+                                                    confirm("delete this tag?")
                                                 ) {
                                                     tags.deleteTag(tag.id);
                                                     toast.success(
-                                                        "Tag deleted",
+                                                        "tag deleted",
                                                     );
                                                 }
                                             }}
@@ -268,22 +268,22 @@
         <!-- About Section -->
         <section class="space-y-3">
             <div
-                class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider"
+                class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
             >
                 <Info class="h-3 w-3" />
-                About
+                about
             </div>
 
             <div
                 class="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm p-4 space-y-2"
             >
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-medium">Chikọta</span>
+                    <span class="text-xs font-medium">chikọta</span>
                     <span class="text-[10px] text-muted-foreground">v1.0.0</span
                     >
                 </div>
                 <p class="text-[10px] text-muted-foreground leading-relaxed">
-                    "Chikọta" is an Igbo word meaning "bring together" — a
+                    "chikọta" is an igbo word meaning "bring together" — a
                     simple, beautiful way to organize your bookmarks.
                 </p>
             </div>

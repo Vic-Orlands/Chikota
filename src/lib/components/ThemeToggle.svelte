@@ -9,7 +9,7 @@
     class="relative p-2 rounded-lg transition-all duration-300 ease-out
            hover:bg-secondary active:scale-95 focus-ring
            group overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-    aria-label="Toggle theme"
+    aria-label="toggle theme"
 >
     <div class="relative w-4 h-4">
         <!-- Sun icon -->

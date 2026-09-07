@@ -15,12 +15,12 @@
 
     function cancelReminder(bookmarkId: string) {
         bookmarks.updateBookmark(bookmarkId, { reminderAt: undefined });
-        toast.success("Reminder cancelled");
+        toast.success("reminder cancelled");
     }
 
     function updateReminder(bookmarkId: string, newDate: Date) {
         bookmarks.updateBookmark(bookmarkId, { reminderAt: newDate });
-        toast.success("Reminder updated");
+        toast.success("reminder updated");
     }
 </script>
 
@@ -42,10 +42,10 @@
         <Dialog.Header>
             <Dialog.Title class="flex items-center gap-2">
                 <Bell class="h-5 w-5" />
-                Your Reminders
+                your reminders
             </Dialog.Title>
             <Dialog.Description>
-                Manage your bookmark reminders
+                manage your bookmark reminders
             </Dialog.Description>
         </Dialog.Header>
 
@@ -53,7 +53,7 @@
             {#if reminderBookmarks.length === 0}
                 <div class="text-center py-8 text-muted-foreground">
                     <Bell class="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No reminders set</p>
+                    <p>no reminders set</p>
                 </div>
             {:else}
                 {#each reminderBookmarks as bookmark (bookmark.id)}
@@ -89,7 +89,7 @@
 
         <Dialog.Footer>
             <Button variant="outline" onclick={() => (open = false)}>
-                Close
+                close
             </Button>
         </Dialog.Footer>
     </Dialog.Content>

@@ -51,7 +51,7 @@
 
     async function handleSave() {
         if (!value) {
-            toast.error("Please select a date");
+            toast.error("please select a date");
             return;
         }
 
@@ -72,8 +72,8 @@
                     "Notification" in window &&
                     Notification.permission === "granted"
                 ) {
-                    new Notification("Bookmark Reminder", {
-                        body: `Don't forget to check your bookmark!`,
+                    new Notification("bookmark reminder", {
+                        body: `don't forget to check your bookmark!`,
                         icon: "/favicon.ico",
                     });
                 } else if (
@@ -82,8 +82,8 @@
                 ) {
                     Notification.requestPermission().then((permission) => {
                         if (permission === "granted") {
-                            new Notification("Bookmark Reminder", {
-                                body: `Don't forget to check your bookmark!`,
+                            new Notification("bookmark reminder", {
+                                body: `don't forget to check your bookmark!`,
                                 icon: "/favicon.ico",
                             });
                         }
@@ -100,19 +100,19 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         email: email.trim(),
-                        title: bookmarkTitle || "Bookmark Reminder",
+                        title: bookmarkTitle || "bookmark reminder",
                         url: bookmarkUrl || "",
                         reminderAt: finalDate.toISOString(),
                     }),
                 });
             } catch (err) {
-                console.error("Failed to schedule email reminder:", err);
-                toast.error("Failed to schedule email reminder");
+                console.error("failed to schedule email reminder:", err);
+                toast.error("failed to schedule email reminder");
             }
         }
 
         isOpen = false;
-        toast.success("Reminder set!");
+        toast.success("reminder set!");
     }
 
     function clearReminder() {
@@ -149,7 +149,7 @@
             <div class="flex items-center justify-between mb-4">
                 <span class="text-sm font-semibold flex items-center gap-2">
                     <Clock class="h-4 w-4 text-primary" />
-                    Set Reminder
+                    set reminder
                 </span>
                 <Button
                     variant="ghost"
@@ -177,7 +177,7 @@
                                 <Calendar.PrevButton
                                     class="p-1 hover:bg-secondary rounded-md transition-colors"
                                 >
-                                    <span class="sr-only">Previous</span>
+                                    <span class="sr-only">previous</span>
                                     <svg
                                         class="h-4 w-4"
                                         fill="none"
@@ -196,7 +196,7 @@
                                 <Calendar.NextButton
                                     class="p-1 hover:bg-secondary rounded-md transition-colors"
                                 >
-                                    <span class="sr-only">Next</span>
+                                    <span class="sr-only">next</span>
                                     <svg
                                         class="h-4 w-4"
                                         fill="none"
@@ -272,7 +272,7 @@
                     <label
                         for="reminder-time"
                         class="text-xs font-medium text-muted-foreground"
-                        >Time</label
+                        >time</label
                     >
                     <div class="relative">
                         <input
@@ -292,7 +292,7 @@
                     <label
                         for="reminder-email"
                         class="text-xs font-medium text-muted-foreground"
-                        >Email (optional)</label
+                        >email (optional)</label
                     >
                     <input
                         id="reminder-email"
@@ -305,7 +305,7 @@
 
                 <div class="pt-2">
                     <Button class="w-full h-9" onclick={handleSave}>
-                        Set Reminder
+                        set reminder
                     </Button>
                 </div>
             </div>

@@ -1,5 +1,6 @@
 export { default as Search } from './Search.svelte';
 export { default as Filter } from './Filter.svelte';
+export { default as MixerVertical } from './MixerVertical.svelte';
 export { default as LayoutGrid } from './LayoutGrid.svelte';
 export { default as List } from './List.svelte';
 export { default as CheckSquare } from './CheckSquare.svelte';

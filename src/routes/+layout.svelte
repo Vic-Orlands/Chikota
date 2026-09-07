@@ -10,7 +10,7 @@
 <svelte:head
   ><link rel="icon" href="/favicon.svg" /><meta
     name="description"
-    content="A quiet home for your favorite corners of the internet. Save, collect, and rediscover with Chikota."
+    content="chikọta — save links, pin the ones you need, find them again."
   /></svelte:head
 >
 {@render children()}

@@ -96,7 +96,7 @@
             {#if isLoadingMore}
                 <div class="flex items-center gap-2 text-muted-foreground">
                     <Spinner size="sm" color="muted" />
-                    <span class="text-xs">Loading more...</span>
+                    <span class="text-xs">loading more...</span>
                 </div>
             {/if}
         </div>
@@ -107,7 +107,7 @@
         <div
             class="flex items-center justify-center py-6 text-xs text-muted-foreground"
         >
-            <span>You've reached the end</span>
+            <span>you've reached the end</span>
         </div>
     {/if}
 </div>

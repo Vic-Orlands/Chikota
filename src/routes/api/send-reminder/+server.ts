@@ -29,7 +29,8 @@ function bookmarkReminderEmailHTML(
           box-sizing: border-box;
         }
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, 'segoe ui', Roboto, 'helvetica neue', Arial, sans-serif;
+          text-transform: lowercase;
           line-height: 1.6;
           color: #1a1a1a;
           background-color: #f5f5f5;
@@ -100,7 +101,7 @@ function bookmarkReminderEmailHTML(
           font-size: 14px;
           color: #4a4a4a;
           word-break: break-all;
-          font-family: 'Courier New', monospace;
+          font-family: 'courier new', monospace;
         }
         .button-container {
           text-align: center;
@@ -205,22 +206,22 @@ function bookmarkReminderEmailHTML(
 export const POST = async ({ request }) => {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session)
-    return json({ error: 'Sign in to use email reminders' }, { status: 401 });
+    return json({ error: 'sign in to use email reminders' }, { status: 401 });
 
   const { email, title, url, reminderAt } = await request.json();
 
   if (!email || !title || !url || !reminderAt) {
-    return json({ error: 'Missing required fields' }, { status: 400 });
+    return json({ error: 'missing required fields' }, { status: 400 });
   }
 
   const scheduledAt = new Date(reminderAt);
   const delay = +scheduledAt - Date.now();
   if (Number.isNaN(+scheduledAt) || delay <= 0) {
-    return json({ error: 'Choose a future reminder time' }, { status: 400 });
+    return json({ error: 'choose a future reminder time' }, { status: 400 });
   }
   if (delay > 30 * 24 * 60 * 60 * 1000) {
     return json(
-      { error: 'Email reminders can be scheduled up to 30 days ahead' },
+      { error: 'email reminders can be scheduled up to 30 days ahead' },
       { status: 400 }
     );
   }
@@ -238,14 +239,14 @@ export const POST = async ({ request }) => {
     const { data, error } = await resend.emails.send({
       from: 'Chikọta <contact@mezie.dev>',
       to: [email],
-      subject: `Time to Revisit: ${title}`,
+      subject: `time to revisit: ${title}`,
       html,
       scheduledAt: scheduledAt.toISOString()
     });
 
     if (error) {
-      console.error('Resend error:', error);
-      return json({ error: 'Failed to send email' }, { status: 500 });
+      console.error('resend error:', error);
+      return json({ error: 'failed to send email' }, { status: 500 });
     }
 
     return json({
@@ -254,8 +255,8 @@ export const POST = async ({ request }) => {
       scheduledAt: scheduledAt.toISOString()
     });
   } catch (err) {
-    console.error('Email send error:', err);
-    return json({ error: 'Internal server error' }, { status: 500 });
+    console.error('email send error:', err);
+    return json({ error: 'internal server error' }, { status: 500 });
   }
 };
 
@@ -264,12 +265,12 @@ export const DELETE = async ({ request }) => {
   if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await request.json();
   if (!id || typeof id !== 'string') {
-    return json({ error: 'Missing scheduled email id' }, { status: 400 });
+    return json({ error: 'missing scheduled email id' }, { status: 400 });
   }
   const { error } = await resend.emails.cancel(id);
   if (error)
     return json(
-      { error: 'Could not cancel the email reminder' },
+      { error: 'could not cancel the email reminder' },
       { status: 500 }
     );
   return json({ success: true });

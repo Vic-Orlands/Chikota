@@ -71,7 +71,7 @@
 
     function handleSubmit() {
         if (!name.trim()) {
-            toast.error("Category name is required");
+            toast.error("category name is required");
             return;
         }
 
@@ -81,7 +81,7 @@
             icon: selectedIcon,
         });
 
-        toast.success("Category added successfully");
+        toast.success("category added successfully");
         open = false;
         name = "";
         selectedColor = "emerald";
@@ -105,19 +105,19 @@
 
     <Dialog.Content class="sm:max-w-md">
         <Dialog.Header>
-            <Dialog.Title>Add New Category</Dialog.Title>
+            <Dialog.Title>add new category</Dialog.Title>
             <Dialog.Description>
-                Create a new category to organize your bookmarks.
+                create a new category to organize your bookmarks.
             </Dialog.Description>
         </Dialog.Header>
 
         <div class="space-y-4">
             <!-- Category Name -->
             <div class="space-y-2">
-                <Label for="category-name">Category Name</Label>
+                <Label for="category-name">category name</Label>
                 <Input
                     id="category-name"
-                    placeholder="e.g. Travel, Recipes, Tech"
+                    placeholder="e.g. travel, recipes, tech"
                     bind:value={name}
                     onkeydown={(e) => e.key === "Enter" && handleSubmit()}
                     class="border-2 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
@@ -126,7 +126,7 @@
 
             <!-- Color Selection -->
             <div class="space-y-2">
-                <Label>Color</Label>
+                <Label>color</Label>
                 <div class="flex gap-2 flex-wrap">
                     {#each colors as color}
                         <button
@@ -137,7 +137,7 @@
                                 : 'border-border hover:border-foreground/50'}"
                             style="background-color: {colorValues[color]};"
                             onclick={() => (selectedColor = color)}
-                            aria-label="Select {color} color"
+                            aria-label="select {color} color"
                         ></button>
                     {/each}
                 </div>
@@ -146,13 +146,13 @@
             <!-- Icon Selection -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                    <Label>Icon</Label>
+                    <Label>icon</Label>
                     <Button
                         variant="outline"
                         size="sm"
                         onclick={selectRandomIcon}
                     >
-                        Random
+                        random
                     </Button>
                 </div>
                 <div class="grid grid-cols-5 gap-2">
@@ -174,7 +174,7 @@
             <!-- Preview -->
             {#if name.trim()}
                 <div class="p-3 rounded-lg bg-secondary/50">
-                    <Label class="text-sm text-muted-foreground">Preview</Label>
+                    <Label class="text-sm text-muted-foreground">preview</Label>
                     <div class="flex items-center gap-2 mt-1">
                         <Badge
                             variant="secondary"
@@ -197,9 +197,9 @@
 
         <Dialog.Footer>
             <Button variant="outline" onclick={() => (open = false)}>
-                Cancel
+                cancel
             </Button>
-            <Button onclick={handleSubmit}>Add Category</Button>
+            <Button onclick={handleSubmit}>add category</Button>
         </Dialog.Footer>
     </Dialog.Content>
 </Dialog.Root>

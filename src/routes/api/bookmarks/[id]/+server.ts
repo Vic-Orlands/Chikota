@@ -15,7 +15,7 @@ export const DELETE = async ({ request, params }) => {
       and(eq(bookmarks.id, params.id), eq(bookmarks.userId, session.user.id))
     )
     .returning({ id: bookmarks.id });
-  if (!removed.length) error(404, 'Bookmark not found');
+  if (!removed.length) error(404, 'bookmark not found');
   return json({ success: true });
 };
 
@@ -31,7 +31,7 @@ export const PUT = async ({ request, params }) => {
         and(eq(bookmarks.id, params.id), eq(bookmarks.userId, session.user.id))
       )
       .returning({ id: bookmarks.id });
-    if (!updated.length) error(404, 'Bookmark not found');
+    if (!updated.length) error(404, 'bookmark not found');
     if (tagNames !== undefined) {
       await tx
         .delete(bookmarksToTags)

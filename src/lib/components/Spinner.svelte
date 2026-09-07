@@ -24,7 +24,7 @@
 <div
     class="rounded-full spinner {sizes[size]} {colors[color]}"
     role="status"
-    aria-label="Loading"
+    aria-label="loading"
 >
-    <span class="sr-only">Loading...</span>
+    <span class="sr-only">loading...</span>
 </div>

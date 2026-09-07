@@ -5,10 +5,10 @@
 
     let {
         open = $bindable(false),
-        title = "Confirm Action",
-        description = "Are you sure you want to proceed?",
-        confirmText = "Confirm",
-        cancelText = "Cancel",
+        title = "confirm action",
+        description = "are you sure you want to proceed?",
+        confirmText = "confirm",
+        cancelText = "cancel",
         variant = "destructive",
         onConfirm,
     }: {

@@ -3,12 +3,12 @@ chrome.runtime.onInstalled.addListener(async () => {
   await chrome.contextMenus.removeAll();
   chrome.contextMenus.create({
     id: 'save-chikota',
-    title: 'Save to Chikota',
+    title: 'save to chikota',
     contexts: ['page', 'link', 'selection', 'image', 'video', 'audio']
   });
   chrome.contextMenus.create({
     id: 'open-chikota',
-    title: 'Open Chikota',
+    title: 'open chikota',
     contexts: ['all']
   });
 });
@@ -17,7 +17,7 @@ async function appUrl() {
     await chrome.storage.local.get('chikotaUrl');
   const url = new URL(chikotaUrl);
   if (!['http:', 'https:'].includes(url.protocol))
-    throw new Error('Invalid Chikota address');
+    throw new Error('invalid chikota address');
   return new URL('/', url);
 }
 async function openApp(source, title) {
@@ -27,7 +27,7 @@ async function openApp(source, title) {
     if (!['http:', 'https:'].includes(target.protocol)) {
       await chrome.action.setBadgeText({ text: '!' });
       await chrome.action.setTitle({
-        title: 'This browser page cannot be saved. Open a website first.'
+        title: 'this browser page cannot be saved. open a website first.'
       });
       return;
     }
@@ -41,7 +41,7 @@ function report(error) {
   console.error(error);
   void chrome.action.setBadgeText({ text: '!' });
   void chrome.action.setTitle({
-    title: 'Could not open Chikota. Check the address in extension options.'
+    title: 'could not open chikota. check the address in extension options.'
   });
 }
 chrome.contextMenus.onClicked.addListener((info, tab) => {

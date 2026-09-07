@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 const aliases = {
   Search: 'MagnifyingGlass',
   Filter: 'MixerHorizontal',
+  MixerVertical: 'MixerVertical',
   LayoutGrid: 'Grid',
   List: 'Rows',
   CheckSquare: 'Checkbox',

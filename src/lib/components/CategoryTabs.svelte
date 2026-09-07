@@ -110,7 +110,7 @@
                             deleteCategory(category.id);
                         }}
                         class="ml-1 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-                        title="Delete category"
+                        title="delete category"
                     >
                         <Trash2 class="w-3 h-3" />
                     </button>
