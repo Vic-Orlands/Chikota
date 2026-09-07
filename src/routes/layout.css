@@ -639,7 +639,6 @@ h2 {
   gap: 10px;
   min-height: 46px;
   padding: 7px 8px;
-  border-bottom: 1px solid var(--border);
   position: relative;
   isolation: isolate;
 }
@@ -658,9 +657,6 @@ h2 {
 .bookmark-row > * {
   position: relative;
   z-index: 1;
-}
-.bookmark-row:last-child {
-  border-bottom: 0;
 }
 .bookmark-row:hover {
   background: transparent;

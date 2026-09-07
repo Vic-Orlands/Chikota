@@ -71,9 +71,7 @@
   function enterLibrary() {
     try {
       localStorage.setItem('chikota-entered', '1');
-    } catch {
-      /* entering still works if storage is unavailable */
-    }
+    } catch {}
     guestView = 'library';
     if (!ready) void initialize().then(checkReminders);
   }
@@ -105,7 +103,7 @@
     | 'notifications'
     | null
   >(null);
-  let dialog: HTMLDialogElement;
+  let dialog = $state<HTMLDialogElement>();
   let searchInput = $state<HTMLInputElement>();
   let commandTrigger = $state<HTMLButtonElement>();
   let commandPosition = $state({ top: 0, left: 0, width: 0 });
@@ -397,8 +395,8 @@
     }
     modal = value;
     await tick();
-    dialog.showModal();
-    dialog.querySelector<HTMLInputElement>('input')?.focus();
+    dialog?.showModal();
+    dialog?.querySelector<HTMLInputElement>('input')?.focus();
   }
   async function editCollection(id: string) {
     const existing = $categories.find((category) => category.id === id);
