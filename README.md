@@ -2,9 +2,9 @@
 
 Chikọta means “gather” in Igbo. It is a focused bookmark workspace for organizing saved content and scheduling reminders to return to it.
 
-[Live product](https://chikota.vercel.app)
+[View Chikọta live](https://chikota.vercel.app)
 
-![Chikọta landing page](./docs/assets/chikota-home.png)
+<img width="1800" height="1169" alt="Screenshot 2026-09-08 at 3 40 05 PM" src="https://github.com/user-attachments/assets/6818dea5-1e95-4002-bddd-cbd71d0d7709" />
 
 ## The product
 
@@ -12,23 +12,12 @@ Saving a link is easy; finding it again is usually the problem. Chikọta keeps 
 
 - Account creation and authenticated workspaces
 - Bookmark creation, editing, and deletion
-- Tags and category views
+- Pinned and Category views
 - Searchable bookmark grid
 - Reminder scheduling and reminder email delivery
 - Light and dark appearance settings
 - Responsive interaction patterns for desktop and mobile
-
-## Architecture
-
-```mermaid
-flowchart LR
-    U["User"] --> SK["SvelteKit application"]
-    SK --> A["Better Auth"]
-    SK --> DB["PostgreSQL via Drizzle"]
-    SK --> E["Reminder email service"]
-```
-
-SvelteKit server routes enforce authentication and expose bookmark, tag, and reminder operations. PostgreSQL stores user-owned content through Drizzle migrations, while the interface is composed from small Svelte components and shared UI primitives.
+- Browser Extension
 
 ## Stack
 
@@ -54,10 +43,6 @@ Configure the database, authentication, site URL, and email provider values expe
 pnpm check
 pnpm build
 ```
-
-## Project status
-
-Chikọta is a working product prototype. The next engineering priorities are automated tests, reminder-job observability, import/export support, duplicate detection, and browser-extension capture.
 
 ## License
 
