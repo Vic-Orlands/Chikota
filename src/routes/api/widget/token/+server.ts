@@ -11,15 +11,10 @@ export const POST = async ({ request }) => {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
   const token = `chk_widget_${randomBytes(24).toString('base64url')}`;
-  await db.transaction(async (tx) => {
-    await tx
-      .delete(widgetAccessTokens)
-      .where(eq(widgetAccessTokens.userId, session.user.id));
-    await tx.insert(widgetAccessTokens).values({
-      id: nanoid(),
-      userId: session.user.id,
-      tokenHash: hashWidgetToken(token)
-    });
+  await db.insert(widgetAccessTokens).values({
+    id: nanoid(),
+    userId: session.user.id,
+    tokenHash: hashWidgetToken(token)
   });
   return json({ token });
 };

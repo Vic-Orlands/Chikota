@@ -14,6 +14,7 @@
   let pointer = $state({ side: 'top', offset: 24 });
   let positioned = $state(false);
   let spotlightVisible = $state(false);
+  let launching = $state(false);
   let panel = $state<HTMLElement>();
   let previousFocus: HTMLElement | null = null;
   const steps = [
@@ -169,6 +170,7 @@
         ? document.activeElement
         : null;
     step = 0;
+    launching = true;
     positioned = false;
     spotlightVisible = false;
   });
@@ -208,6 +210,7 @@
     document.querySelector<HTMLButtonElement>('.context-backdrop')?.click();
   }
   async function advance(value: number) {
+    launching = false;
     spotlightVisible = false;
     await new Promise((resolve) => window.setTimeout(resolve, 120));
     closeMenus();
@@ -244,6 +247,8 @@
   <div
     bind:this={panel}
     class="tour-card"
+    class:centered={!current.selector}
+    class:launching
     role="dialog"
     aria-modal="false"
     aria-labelledby="tour-title"
@@ -251,6 +256,9 @@
     tabindex="-1"
     class:positioned
     style:transform={`translate3d(${position.left}px, ${position.top}px, 0)`}
+    onanimationend={(event) => {
+      if (event.animationName === 'tour-launch-in') launching = false;
+    }}
     onkeydown={(event) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
@@ -294,9 +302,8 @@
               if (step === steps.length - 1) dismiss();
               else advance(step + 1);
             }}
-            >{step === steps.length - 1
-              ? 'start collecting'
-              : 'next'}<TourNext /></button
+            >{step === steps.length - 1 ? 'start collecting' : 'next'}<TourNext
+            /></button
           >
         </div>
       </div>
@@ -334,6 +341,13 @@
     color: var(--foreground);
     box-shadow: var(--shadow);
     outline: none;
+    font-family: var(--font-sans);
+    font-size: var(--modal-body-font-size);
+  }
+  .tour-card.centered {
+    top: 50%;
+    left: 50%;
+    transform: translate3d(-50%, -50%, 0) !important;
   }
   .tour-body {
     max-height: calc(100dvh - 26px);
@@ -387,6 +401,15 @@
         transform 260ms cubic-bezier(0.645, 0.045, 0.355, 1),
         opacity 180ms ease-out;
     }
+    .tour-card.positioned.launching {
+      transform-origin: center;
+      transition: none;
+      animation: tour-launch-in 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      will-change: scale, opacity, border-radius;
+    }
+    .tour-card.launching .tour-copy {
+      animation: none;
+    }
     .tour-spotlight.positioned {
       transition: opacity 120ms ease-out;
     }
@@ -402,6 +425,21 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+  @keyframes tour-launch-in {
+    0% {
+      opacity: 0;
+      scale: 0.04;
+      border-radius: 999px;
+    }
+    35% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+      scale: 1;
+      border-radius: 8px;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -437,7 +475,7 @@
   }
   p {
     margin: 10px 0 16px;
-    font-size: 12px;
+    font-size: var(--modal-body-font-size);
     line-height: 1.8;
     color: var(--muted-foreground);
   }
@@ -450,7 +488,7 @@
     background: var(--sidebar);
     padding: 10px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: var(--modal-body-font-size);
     text-align: left;
   }
   .tour-footer {

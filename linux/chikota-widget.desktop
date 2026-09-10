@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Chikota Desktop Widget
+Comment=Pinned links, reminders, and recent opens from Chikota
+Exec=@BIN_ROOT@/chikota-widget
+Terminal=false
+Categories=Utility;
+StartupNotify=false

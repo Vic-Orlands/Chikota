@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+install_root="${XDG_DATA_HOME:-$HOME/.local/share}/chikota"
+exec python3 "$install_root/chikota_widget.py" "$@"

@@ -29,6 +29,7 @@
   import GuideLauncher from '$lib/components/icons/GuideLauncher.svelte';
   import KeyboardDown from '$lib/components/icons/KeyboardDown.svelte';
   import MacWidgetLauncher from '$lib/components/icons/MacWidgetLauncher.svelte';
+  import UbuntuWidgetLauncher from '$lib/components/icons/UbuntuWidgetLauncher.svelte';
   import ReminderDone from '$lib/components/icons/ReminderDone.svelte';
   import SearchGrid from '$lib/components/icons/SearchGrid.svelte';
   import SaveCloud from '$lib/components/icons/SaveCloud.svelte';
@@ -45,6 +46,7 @@
     Pin,
     Check,
     CheckCircled,
+    ExternalLink,
     ArrowUpRight,
     ArrowRight,
     Cross2,
@@ -66,6 +68,7 @@
     updatedAt: string;
   };
   type SettingsTab = 'appearance' | 'reminders' | 'about';
+  type DesktopPlatform = 'mac' | 'linux' | null;
 
   let { data } = $props();
   let guestView = $state<'pending' | 'landing' | 'library'>('pending');
@@ -87,6 +90,7 @@
       localStorage.setItem('chikota-entered', '1');
     } catch {}
     guestView = 'library';
+    revealPlatformCallout();
     if (!ready) void initialize().then(checkReminders);
   }
   let loadError = $state('');
@@ -123,6 +127,17 @@
   let extensionPanelOpen = $state(false);
   let extensionPanel = $state<HTMLElement>();
   let extensionPanelCloseTimer: number | undefined;
+  let widgetPanelMounted = $state(false);
+  let widgetPanelOpen = $state(false);
+  let widgetPanel = $state<HTMLElement>();
+  let widgetPanelCloseTimer: number | undefined;
+  let linuxPanelMounted = $state(false);
+  let linuxPanelOpen = $state(false);
+  let linuxPanel = $state<HTMLElement>();
+  let linuxPanelCloseTimer: number | undefined;
+  let detectedPlatform = $state<DesktopPlatform>(null);
+  let platformCalloutOpen = $state(false);
+  let platformCalloutTimer: number | undefined;
   let remindersPanelMounted = $state(false);
   let remindersPanelOpen = $state(false);
   let remindersPanel = $state<HTMLElement>();
@@ -258,6 +273,23 @@
             : $categories.find((c) => c.id === section)?.name || 'collection'
   );
   onMount(() => {
+    const navigatorWithPlatform = navigator as Navigator & {
+      userAgentData?: { platform?: string };
+    };
+    const clientPlatform =
+      navigatorWithPlatform.userAgentData?.platform ||
+      navigator.platform ||
+      navigator.userAgent;
+    const isMobileDevice = /android|iphone|ipad|ipod|mobile/i.test(
+      navigator.userAgent
+    );
+    detectedPlatform = isMobileDevice
+      ? null
+      : /mac/i.test(clientPlatform)
+        ? 'mac'
+        : /linux|x11/i.test(clientPlatform)
+          ? 'linux'
+          : null;
     try {
       reminderStates = JSON.parse(localStorage.getItem(reminderKey()) || '{}');
       remindersEnabled = localStorage.getItem(reminderEnabledKey()) !== 'false';
@@ -282,6 +314,7 @@
     }
     if (shouldOpen) {
       guestView = 'library';
+      revealPlatformCallout();
       void initialize().then(checkReminders);
     } else {
       guestView = 'landing';
@@ -321,6 +354,7 @@
       window.removeEventListener('storage', refresh);
       for (const timer of Object.values(copyResetTimers))
         window.clearTimeout(timer);
+      if (platformCalloutTimer) window.clearTimeout(platformCalloutTimer);
     };
   });
   async function initialize() {
@@ -489,28 +523,19 @@
     dialog?.close();
     modal = null;
   }
-  async function openExtensionPanel(target: 'extension' | 'widget' = 'extension') {
+  async function openExtensionPanel() {
     closeContext();
     closeReminderPopover();
     closeRemindersPanel();
+    closeWidgetPanel();
+    closeLinuxPanel();
     if (modal) closeModal();
     if (extensionPanelCloseTimer) window.clearTimeout(extensionPanelCloseTimer);
     extensionPanelMounted = true;
     await tick();
     requestAnimationFrame(() => {
       extensionPanelOpen = true;
-      if (target === 'widget') {
-        const widgetSection = document.getElementById('widget-connect');
-        if (extensionPanel && widgetSection) {
-          extensionPanel.scrollTo({
-            top: widgetSection.offsetTop - 16,
-            behavior: 'smooth'
-          });
-          widgetSection.focus({ preventScroll: true });
-        }
-      } else {
-        extensionPanel?.focus({ preventScroll: true });
-      }
+      extensionPanel?.focus({ preventScroll: true });
     });
   }
   function closeExtensionPanel() {
@@ -521,13 +546,80 @@
       extensionPanelCloseTimer = undefined;
     }, 350);
   }
+  async function openWidgetPanel() {
+    closeContext();
+    closeReminderPopover();
+    closeRemindersPanel();
+    closeExtensionPanel();
+    closeLinuxPanel();
+    dismissPlatformCallout();
+    if (modal) closeModal();
+    if (widgetPanelCloseTimer) window.clearTimeout(widgetPanelCloseTimer);
+    widgetPanelMounted = true;
+    await tick();
+    requestAnimationFrame(() => {
+      widgetPanelOpen = true;
+      widgetPanel?.focus({ preventScroll: true });
+    });
+  }
+  function closeWidgetPanel() {
+    widgetPanelOpen = false;
+    if (widgetPanelCloseTimer) window.clearTimeout(widgetPanelCloseTimer);
+    widgetPanelCloseTimer = window.setTimeout(() => {
+      widgetPanelMounted = false;
+      widgetPanelCloseTimer = undefined;
+    }, 350);
+  }
+  async function openLinuxPanel() {
+    closeContext();
+    closeReminderPopover();
+    closeRemindersPanel();
+    closeExtensionPanel();
+    closeWidgetPanel();
+    dismissPlatformCallout();
+    if (modal) closeModal();
+    if (linuxPanelCloseTimer) window.clearTimeout(linuxPanelCloseTimer);
+    linuxPanelMounted = true;
+    await tick();
+    requestAnimationFrame(() => {
+      linuxPanelOpen = true;
+      linuxPanel?.focus({ preventScroll: true });
+    });
+  }
+  function closeLinuxPanel() {
+    linuxPanelOpen = false;
+    if (linuxPanelCloseTimer) window.clearTimeout(linuxPanelCloseTimer);
+    linuxPanelCloseTimer = window.setTimeout(() => {
+      linuxPanelMounted = false;
+      linuxPanelCloseTimer = undefined;
+    }, 350);
+  }
+  function dismissPlatformCallout() {
+    platformCalloutOpen = false;
+    if (platformCalloutTimer) {
+      window.clearTimeout(platformCalloutTimer);
+      platformCalloutTimer = undefined;
+    }
+  }
+  function revealPlatformCallout() {
+    if (!detectedPlatform) return;
+    dismissPlatformCallout();
+    platformCalloutTimer = window.setTimeout(() => {
+      platformCalloutOpen = true;
+      platformCalloutTimer = window.setTimeout(() => {
+        platformCalloutOpen = false;
+        platformCalloutTimer = undefined;
+      }, 4500);
+    }, 500);
+  }
   async function openRemindersPanel() {
     closeContext();
     closeReminderPopover();
     closeExtensionPanel();
+    closeWidgetPanel();
+    closeLinuxPanel();
     if (modal) closeModal();
-    if (remindersPanelCloseTimer)
-      window.clearTimeout(remindersPanelCloseTimer);
+    if (remindersPanelCloseTimer) window.clearTimeout(remindersPanelCloseTimer);
     remindersPanelMounted = true;
     await tick();
     requestAnimationFrame(() => {
@@ -537,8 +629,7 @@
   }
   function closeRemindersPanel() {
     remindersPanelOpen = false;
-    if (remindersPanelCloseTimer)
-      window.clearTimeout(remindersPanelCloseTimer);
+    if (remindersPanelCloseTimer) window.clearTimeout(remindersPanelCloseTimer);
     remindersPanelCloseTimer = window.setTimeout(() => {
       remindersPanelMounted = false;
       remindersPanelCloseTimer = undefined;
@@ -563,9 +654,11 @@
     try {
       await navigator.clipboard.writeText(widgetToken);
       showCopied('widget-token');
-      toast.success('mac connection code copied');
+      toast.success('connection code copied');
     } catch {
-      toast.error('clipboard is unavailable. select and copy the code instead.');
+      toast.error(
+        'clipboard is unavailable. select and copy the code instead.'
+      );
     }
   }
   function showCopied(target: string) {
@@ -1037,7 +1130,9 @@
         widgetEnabled: !bookmark.widgetEnabled
       });
       toast.success(
-        bookmark.widgetEnabled ? 'removed from mac widget' : 'added to mac widget'
+        bookmark.widgetEnabled
+          ? 'removed from mac widget'
+          : 'added to mac widget'
       );
     } catch {
       toast.error('could not update the mac widget');
@@ -1291,31 +1386,6 @@
     <header class="reading-header">
       <a class="wordmark" href="/" aria-label="chikota home"><h1>chikota</h1></a
       >
-      <nav class="library-tabs" aria-label="library">
-        <span
-          class:opened={section === 'opened'}
-          class="tab-indicator"
-          style:width={`${(section === 'opened' ? openedTabWidth : bookmarksTabWidth) + 2}px`}
-          style:transform={`translateX(${section === 'opened' ? 0 : openedTabWidth}px)`}
-          aria-hidden="true"
-        ></span>
-        <button
-          bind:clientWidth={openedTabWidth}
-          class:active={section === 'opened'}
-          aria-label="opened in the last 7 days"
-          aria-pressed={section === 'opened'}
-          onclick={() => navigate('opened')}><Book size={14} />opened</button
-        >
-        <button
-          bind:clientWidth={bookmarksTabWidth}
-          class:active={section !== 'opened'}
-          aria-pressed={section !== 'opened'}
-          onclick={() => navigate('all')}
-          >{#if section !== 'opened'}<BookmarkFilled
-              size={14}
-            />{:else}<BookmarkIcon size={14} />{/if}bookmarks</button
-        >
-      </nav>
       <div class="header-actions">
         <button
           data-tour="search"
@@ -1441,7 +1511,7 @@
                         if (selectCollectionRange(event, c.id)) return;
                         navigate(section === c.id ? 'all' : c.id);
                       }}
-                      ><FileTrayStacked size={15} /><span
+                      ><span
                         ><strong>{c.name}</strong><small
                           >{$bookmarks.filter((b) => b.categoryId === c.id)
                             .length}
@@ -1510,7 +1580,7 @@
                           selectBookmark(b.id);
                       }}
                       ><span class="site-letter"
-                        >{domain(b.url).slice(0, 1).toUpperCase()}<img
+                        ><Globe size={18} /><img
                           src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
                           alt=""
                           onerror={(event) => event.currentTarget.remove()}
@@ -1789,7 +1859,8 @@
                               onclick={(event) => {
                                 event.stopPropagation();
                                 void copyLink(b);
-                              }}><CopyIconSwap
+                              }}
+                              ><CopyIconSwap
                                 copied={copiedTargets.includes(
                                   `bookmark:${b.id}`
                                 )}
@@ -1841,18 +1912,91 @@
     </main>
   </div>
 
-  <button
-    type="button"
-    class="fixed right-5 bottom-5 z-40 grid size-8 place-items-center bg-transparent p-0 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    aria-label="install the mac desktop widget"
-    aria-haspopup="dialog"
-    aria-controls="extension-panel"
-    aria-expanded={extensionPanelOpen}
-    title="mac desktop widget"
-    onclick={() => void openExtensionPanel('widget')}
-  >
-    <MacWidgetLauncher />
-  </button>
+  {#if !selectedCollections.length && !selected.length}<nav
+      class="library-tabs floating-library-tabs"
+      aria-label="library"
+    >
+      <span
+        class:opened={section === 'opened'}
+        class="tab-indicator"
+        style:width={`${(section === 'opened' ? openedTabWidth : bookmarksTabWidth) + 2}px`}
+        style:transform={`translateX(${section === 'opened' ? 0 : openedTabWidth}px)`}
+        aria-hidden="true"
+      ></span>
+      <button
+        bind:clientWidth={openedTabWidth}
+        class:active={section === 'opened'}
+        aria-label="opened in the last 7 days"
+        aria-pressed={section === 'opened'}
+        onclick={() => navigate('opened')}><Book size={14} />opened</button
+      >
+      <button
+        bind:clientWidth={bookmarksTabWidth}
+        class:active={section !== 'opened'}
+        aria-pressed={section !== 'opened'}
+        onclick={() => navigate('all')}
+        >{#if section !== 'opened'}<BookmarkFilled
+            size={14}
+          />{:else}<BookmarkIcon size={14} />{/if}bookmarks</button
+      >
+    </nav>{/if}
+
+  <div class="platform-launchers" aria-label="chikota desktop tools">
+    <span class="platform-launcher-wrap">
+      {#if detectedPlatform === 'linux' && platformCalloutOpen}<span
+          class="platform-callout linux-callout"
+          role="status"
+        >
+          <span class="callout-dot small" aria-hidden="true"></span>
+          <span class="callout-dot large" aria-hidden="true"></span>
+          <button
+            type="button"
+            class="callout-message"
+            onclick={() => void openLinuxPanel()}
+            >on linux? <span>bring chikota to your desktop.</span></button
+          >
+        </span>{/if}
+      <button
+        type="button"
+        class="platform-launcher linux-launcher"
+        aria-label="install the linux desktop widget"
+        aria-haspopup="dialog"
+        aria-controls="linux-widget-panel"
+        aria-expanded={linuxPanelOpen}
+        title="linux desktop widget"
+        onclick={() => void openLinuxPanel()}
+      >
+        <UbuntuWidgetLauncher />
+      </button>
+    </span>
+    <span class="platform-launcher-wrap">
+      {#if detectedPlatform === 'mac' && platformCalloutOpen}<span
+          class="platform-callout mac-callout"
+          role="status"
+        >
+          <span class="callout-dot small" aria-hidden="true"></span>
+          <span class="callout-dot large" aria-hidden="true"></span>
+          <button
+            type="button"
+            class="callout-message"
+            onclick={() => void openWidgetPanel()}
+            >on a mac? <span>bring chikota to your desktop.</span></button
+          >
+        </span>{/if}
+      <button
+        type="button"
+        class="platform-launcher mac-launcher"
+        aria-label="install the mac desktop widget"
+        aria-haspopup="dialog"
+        aria-controls="widget-panel"
+        aria-expanded={widgetPanelOpen}
+        title="mac desktop widget"
+        onclick={() => void openWidgetPanel()}
+      >
+        <MacWidgetLauncher />
+      </button>
+    </span>
+  </div>
 
   {#if extensionPanelMounted}<div
       bind:this={extensionPanel}
@@ -1907,66 +2051,148 @@
         href="/chikota-extension.zip"
         download><Download />download extension</a
       >
-      <section
-        id="widget-connect"
-        class="widget-connect"
-        tabindex="-1"
-        aria-labelledby="widget-connect-title"
+    </div>{/if}
+
+  {#if widgetPanelMounted}<div
+      bind:this={widgetPanel}
+      id="widget-panel"
+      class="extension-panel desktop-widget-panel widget-panel t-panel-slide"
+      data-open={widgetPanelOpen}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="widget-panel-title"
+      tabindex="-1"
+      onkeydown={(event) => {
+        if (event.key === 'Escape') closeWidgetPanel();
+      }}
+    >
+      <div class="extension-panel-heading">
+        <GuideLauncher size={18} /><span>mac desktop widget</span><button
+          class="icon-button small"
+          aria-label="close mac desktop widget panel"
+          onclick={closeWidgetPanel}><Cross2 size={14} /></button
+        >
+      </div>
+      <h2 id="widget-panel-title">keep it close to home.</h2>
+      <p class="dialog-description">
+        reminders, pinned links, and recent opens stay available from your
+        desktop, including while offline.
+      </p>
+      <ol class="widget-setup-steps">
+        <li>
+          run the <strong>Chikota</strong> macOS app from the included Xcode project.
+        </li>
+        <li>
+          create a connection code below, then paste it and this site’s address
+          into the Mac app and choose <strong>connect</strong>.
+        </li>
+        <li>
+          control-click the Mac desktop, choose <strong>Edit Widgets</strong>,
+          search for <strong>chikota</strong>, and add the widget.
+        </li>
+      </ol>
+      <p class="widget-setup-note">
+        The connection code links your account; macOS installs the widget with
+        the companion app.
+      </p>
+      {#if data.session}
+        {#if widgetToken}<button
+            class="widget-token"
+            aria-label={copiedTargets.includes('widget-token')
+              ? 'mac connection code copied'
+              : 'copy mac connection code'}
+            onclick={copyWidgetToken}
+            ><code>{widgetToken}</code><CopyIconSwap
+              copied={copiedTargets.includes('widget-token')}
+              size={14}
+            /></button
+          ><small class="widget-token-note"
+            >shown once. paste this code into the mac app.</small
+          >{:else}<button
+            class="secondary-button widget-connect-action"
+            disabled={widgetTokenBusy}
+            onclick={createWidgetToken}
+            >{widgetTokenBusy
+              ? 'creating…'
+              : 'create mac connection code'}</button
+          >{/if}
+        <p class="form-error" role="alert">{widgetTokenError}</p>
+      {:else}<button
+          class="secondary-button widget-connect-action"
+          onclick={() => authClient.signIn.social({ provider: 'google' })}
+          >sign in to connect the widget</button
+        >
+      {/if}
+    </div>{/if}
+
+  {#if linuxPanelMounted}<div
+      bind:this={linuxPanel}
+      id="linux-widget-panel"
+      class="extension-panel desktop-widget-panel widget-panel t-panel-slide"
+      data-open={linuxPanelOpen}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="linux-widget-panel-title"
+      tabindex="-1"
+      onkeydown={(event) => {
+        if (event.key === 'Escape') closeLinuxPanel();
+      }}
+    >
+      <div class="extension-panel-heading">
+        <UbuntuWidgetLauncher size={18} /><span>linux desktop widget</span
+        ><button
+          class="icon-button small"
+          aria-label="close linux desktop widget panel"
+          onclick={closeLinuxPanel}><Cross2 size={14} /></button
+        >
+      </div>
+      <h2 id="linux-widget-panel-title">keep it close on linux.</h2>
+      <p class="dialog-description">
+        a lightweight desktop companion for pinned links, reminders, and recent
+        opens—with an offline cache for when the network disappears.
+      </p>
+      <ol class="widget-setup-steps">
+        <li>download and unzip the Linux widget.</li>
+        <li>
+          install Python 3 and Tkinter, then run
+          <strong>./install.sh</strong> from the extracted folder.
+        </li>
+        <li>
+          launch <strong>Chikota Desktop Widget</strong>, then paste this site’s
+          address and a connection code created below.
+        </li>
+      </ol>
+      <a
+        class="primary-button download-extension"
+        href="/chikota-linux-widget.zip"
+        download><Download />download linux widget</a
       >
-        <div class="widget-connect-heading">
-          <GuideLauncher size={16} /><strong id="widget-connect-title"
-            >mac desktop widget</strong
-          >
-        </div>
-        <p>
-          reminders, pinned links, and recent opens stay available from your
-          desktop, including while offline.
-        </p>
-        <ol class="widget-setup-steps">
-          <li>
-            run the <strong>Chikota</strong> macOS app from the included Xcode
-            project.
-          </li>
-          <li>
-            create a connection code below, then paste it and this site’s
-            address into the Mac app and choose <strong>connect</strong>.
-          </li>
-          <li>
-            control-click the Mac desktop, choose <strong>Edit Widgets</strong>,
-            search for <strong>chikota</strong>, and add the widget.
-          </li>
-        </ol>
-        <p class="widget-setup-note">
-          The connection code links your account; macOS installs the widget with
-          the companion app.
-        </p>
-        {#if data.session}
-          {#if widgetToken}<button
-              class="widget-token"
-              aria-label={copiedTargets.includes('widget-token')
-                ? 'mac connection code copied'
-                : 'copy mac connection code'}
-              onclick={copyWidgetToken}><code>{widgetToken}</code><CopyIconSwap
-                copied={copiedTargets.includes('widget-token')}
-                size={14}
-              /></button
-            ><small>shown once. paste this code into the mac app.</small
-            >{:else}<button
-              class="secondary-button"
-              disabled={widgetTokenBusy}
-              onclick={createWidgetToken}
-              >{widgetTokenBusy
-                ? 'creating…'
-                : 'create mac connection code'}</button
-            >{/if}
-          <p class="form-error" role="alert">{widgetTokenError}</p>
-        {:else}<button
-            class="secondary-button"
-            onclick={() => authClient.signIn.social({ provider: 'google' })}
-            >sign in to connect the widget</button
-          >
-        {/if}
-      </section>
+      {#if data.session}
+        {#if widgetToken}<button
+            class="widget-token linux-widget-token"
+            aria-label={copiedTargets.includes('widget-token')
+              ? 'connection code copied'
+              : 'copy connection code'}
+            onclick={copyWidgetToken}
+            ><code>{widgetToken}</code><CopyIconSwap
+              copied={copiedTargets.includes('widget-token')}
+              size={14}
+            /></button
+          ><small class="widget-token-note"
+            >shown once. paste this code into the linux widget.</small
+          >{:else}<button
+            class="secondary-button widget-connect-action linux-connect-action"
+            disabled={widgetTokenBusy}
+            onclick={createWidgetToken}
+            >{widgetTokenBusy ? 'creating…' : 'create connection code'}</button
+          >{/if}
+        <p class="form-error" role="alert">{widgetTokenError}</p>
+      {:else}<button
+          class="secondary-button widget-connect-action linux-connect-action"
+          onclick={() => authClient.signIn.social({ provider: 'google' })}
+          >sign in to connect the widget</button
+        >
+      {/if}
     </div>{/if}
 
   {#if remindersPanelMounted}<div
@@ -2246,9 +2472,11 @@
             role="menuitem"
             data-shortcut="w"
             onclick={() => void toggleWidgetBookmark(b)}
-            ><GuideLauncher /><span>{b.widgetEnabled
-              ? 'remove from mac widget'
-              : 'add to mac widget'}</span><kbd><KeyboardDown />W</kbd></button
+            ><GuideLauncher /><span
+              >{b.widgetEnabled
+                ? 'remove from mac widget'
+                : 'add to mac widget'}</span
+            ><kbd><KeyboardDown />W</kbd></button
           >{/if}
         <hr />
         <button
@@ -2336,12 +2564,15 @@
                       closeModal();
                     }}
                     ><span class="command-favicon"
-                      >{domain(bookmark.url).slice(0, 1).toUpperCase()}</span
-                    ><span
-                      ><strong>{bookmark.title}</strong><small
-                        >{bookmark.url}</small
-                      ></span
-                    ><ArrowUpRight size={13} /></a
+                      ><Globe size={16} /><img
+                        src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(bookmark.url)}&sz=32`}
+                        alt=""
+                        onerror={(event) => event.currentTarget.remove()}
+                      /></span
+                    ><strong class="command-bookmark-title"
+                      >{bookmark.title}</strong
+                    ><small class="command-bookmark-url">{bookmark.url}</small
+                    ><ExternalLink class="command-external-link" size={16} /></a
                   >{/each}
               {/if}
             </div>

@@ -55,6 +55,9 @@
   --panel-translate-y: 100px;
   --panel-blur: 2px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --body-font-size: 14px;
+  --secondary-text-font-size: 12px;
+  --modal-body-font-size: var(--body-font-size);
 }
 [data-theme='forest'] {
   --background: #0c1510;
@@ -90,6 +93,10 @@
 }
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
 }
 body {
   margin: 0;
@@ -104,7 +111,7 @@ body {
     sans-serif;
   font-optical-sizing: auto;
   font-variation-settings: 'wdth' 100;
-  font-size: 14px;
+  font-size: var(--body-font-size);
   -webkit-font-smoothing: antialiased;
 }
 h1,
@@ -173,7 +180,7 @@ svg {
 .reading-header {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 18px;
   padding: 18px 10px;
@@ -203,6 +210,19 @@ svg {
   border-radius: 22px;
   background: var(--sidebar);
   overflow: hidden;
+}
+.floating-library-tabs {
+  position: fixed;
+  z-index: 30;
+  left: 50%;
+  bottom: 30px;
+  min-height: 42px;
+  transform: translateX(-50%);
+  box-shadow: var(--shadow);
+}
+.library-tabs.floating-library-tabs button {
+  min-height: 40px;
+  font-size: var(--body-font-size);
 }
 .library-tabs button {
   position: relative;
@@ -375,7 +395,7 @@ h2 {
   border-radius: 5px;
   background: transparent;
   color: var(--foreground);
-  font-size: 11px;
+  font-size: var(--body-font-size);
   white-space: nowrap;
 }
 .plain-button:hover {
@@ -394,7 +414,7 @@ h2 {
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 7px 10px;
-  font-size: 11px;
+  font-size: var(--body-font-size);
   font-weight: 500;
   min-height: 30px;
   white-space: nowrap;
@@ -459,7 +479,7 @@ h2 {
 .collection-main strong {
   display: block;
   color: var(--foreground);
-  font-size: 11px;
+  font-size: var(--body-font-size);
   font-weight: 500;
   overflow: hidden;
   white-space: nowrap;
@@ -468,7 +488,7 @@ h2 {
 .collection-main small {
   display: block;
   margin-top: 5px;
-  font-size: 10px;
+  font-size: var(--secondary-text-font-size);
 }
 .collection-menu {
   width: 24px;
@@ -490,27 +510,56 @@ h2 {
 }
 .pin-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  border-block: 1px solid var(--border);
+  overflow: hidden;
+  background: transparent;
 }
 .pin-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 7px;
-  padding: 10px;
+  gap: var(--icon-text-gap);
+  min-width: 0;
+  min-height: 66px;
+  height: 66px;
+  padding: 6px 12px;
   background: var(--sidebar);
-  border: 1px solid var(--border);
-  border-radius: 7px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+}
+.pin-card:nth-child(4n) {
+  border-right: 0;
+}
+.pin-card:nth-child(n + 5) {
+  border-top: 1px solid var(--border);
+}
+.pin-card > .site-letter {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border-radius: 0;
+  background: transparent;
+}
+.pin-card > .site-letter img {
+  inset: 0;
+  width: 20px;
+  height: 20px;
+}
+.pin-card > .site-letter:has(img) > svg {
+  visibility: hidden;
 }
 .pin-card > div {
   min-width: 0;
-  flex: 1;
+  width: 100%;
 }
 .pin-card strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--body-font-size);
   font-weight: 500;
+  line-height: 1.1;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -518,8 +567,12 @@ h2 {
 .pin-card small {
   display: block;
   color: var(--muted-foreground);
-  font-size: 10px;
-  margin-top: 5px;
+  font-size: var(--secondary-text-font-size);
+  line-height: 1.1;
+  margin-top: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .pin-card:hover {
   background: var(--secondary);
@@ -544,12 +597,12 @@ h2 {
   padding: 16px 12px;
 }
 .section-empty strong {
-  font-size: 13px;
+  font-size: var(--body-font-size);
   font-weight: 500;
 }
 .section-empty p {
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: var(--secondary-text-font-size);
   line-height: 1.6;
   margin: 10px 0 0;
 }
@@ -559,7 +612,7 @@ h2 {
 }
 .bookmarks-empty .plain-button {
   margin-top: 12px;
-  font-size: 11px;
+  font-size: var(--body-font-size);
 }
 .library-title {
   display: flex;
@@ -660,7 +713,7 @@ h2 {
   min-height: 30px;
   padding: 5px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--body-font-size);
   cursor: pointer;
   outline: none;
 }
@@ -686,7 +739,7 @@ h2 {
   justify-content: flex-end;
   min-height: 46px;
   width: max-content;
-  font-size: 10px;
+  font-size: var(--body-font-size);
 }
 .bookmark-items {
   width: 100%;
@@ -853,7 +906,7 @@ h2 {
 .bookmark-meta {
   max-width: 100%;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--secondary-text-font-size);
   line-height: 1.4;
   color: var(--muted-foreground);
   overflow: hidden;
@@ -990,7 +1043,7 @@ h2 {
   min-height: 32px;
   padding: 5px 7px;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--body-font-size);
   line-height: 1.25;
 }
 .context-menu button > svg {
@@ -1027,7 +1080,7 @@ h2 {
 .reminder-popover {
   position: fixed;
   z-index: 51;
-  width: 280px;
+  width: 320px;
   max-width: calc(100vw - 20px);
   padding: 12px;
   border: 1px solid var(--border);
@@ -1043,7 +1096,7 @@ h2 {
   gap: var(--icon-text-gap);
 }
 .reminder-popover-title strong {
-  font-size: 12px;
+  font-size: var(--body-font-size);
   font-weight: 500;
 }
 .reminder-popover-title button {
@@ -1053,19 +1106,19 @@ h2 {
   margin: 6px 0 14px;
   overflow: hidden;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: var(--body-font-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .reminder-popover-form label {
   gap: 5px;
   margin-bottom: 11px;
-  font-size: 10px;
+  font-size: var(--body-font-size);
 }
 .reminder-popover-form input {
   padding: 8px 9px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--body-font-size);
 }
 .reminder-popover-form input:focus,
 .reminder-popover-form input:focus-visible {
@@ -1083,12 +1136,12 @@ h2 {
 }
 .reminder-popover-actions .plain-button {
   margin-right: auto;
-  font-size: 10px;
+  font-size: var(--body-font-size);
 }
 .reminder-popover-actions .primary-button {
   min-height: 30px;
   padding: 7px 9px;
-  font-size: 10px;
+  font-size: var(--body-font-size);
 }
 .danger-text {
   color: #d15f54;
@@ -1113,7 +1166,7 @@ h2 {
   display: flex;
   gap: var(--icon-text-gap);
   align-items: center;
-  font-size: 12px;
+  font-size: var(--body-font-size);
   padding: 0 14px 0 4px;
   color: var(--accent-text);
   border-right: 1px solid var(--border);
@@ -1127,7 +1180,7 @@ h2 {
   border: 0;
   padding: 8px;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: var(--body-font-size);
 }
 .selection-toolbar button:hover {
   background: var(--secondary);
@@ -1175,6 +1228,20 @@ h2 {
   box-shadow: var(--shadow);
   margin: auto;
   overflow-y: auto;
+  font-family: var(--font-sans);
+  font-size: var(--modal-body-font-size);
+}
+[data-slot='dialog-content'] {
+  font-family: var(--font-sans);
+  font-size: var(--modal-body-font-size);
+}
+[data-slot='dialog-content'] :where(p, label, input, textarea, select, button) {
+  font-size: var(--modal-body-font-size) !important;
+}
+[data-slot='dialog-content']
+  :where(h1, h2, h3, h4, h5, h6, [data-slot='dialog-title'])
+  :where(span, small, strong) {
+  font-size: inherit !important;
 }
 .app-dialog[open] {
   animation: appear 200ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1210,7 +1277,7 @@ h2 {
 }
 .dialog-description {
   margin: 5px 0 18px;
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
   line-height: 1.7;
   color: var(--muted-foreground);
 }
@@ -1219,14 +1286,14 @@ form label {
   flex-wrap: wrap;
   gap: 7px;
   align-items: center;
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
   font-weight: 500;
   margin-bottom: 17px;
 }
 form label > span {
   font-weight: 400;
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: var(--secondary-text-font-size);
 }
 form input,
 form textarea,
@@ -1235,7 +1302,7 @@ form select {
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 11px 12px;
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
   background: var(--background);
   color: var(--foreground);
   font-weight: 400;
@@ -1260,7 +1327,7 @@ form textarea::placeholder {
 }
 .form-error {
   color: #cf6356;
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
   line-height: 1.6;
 }
 .form-error:empty {
@@ -1285,7 +1352,7 @@ form textarea::placeholder {
   line-height: 1;
 }
 .settings-label {
-  font-size: 9px;
+  font-size: var(--modal-body-font-size);
   letter-spacing: 1.2px;
   color: var(--muted-foreground);
   margin: 26px 0 13px;
@@ -1300,6 +1367,7 @@ form textarea::placeholder {
   background: none;
   border: 0;
   padding: 0;
+  font-size: var(--modal-body-font-size);
   text-align: left;
 }
 .theme-preview {
@@ -1363,13 +1431,15 @@ form textarea::placeholder {
 }
 .theme-options strong {
   display: block;
-  font-size: 11px;
+  font-size: inherit;
   font-weight: 500;
+  line-height: 1.4;
   margin-top: 9px;
 }
 .theme-options small {
   display: block;
-  font-size: 8px;
+  font-size: var(--secondary-text-font-size);
+  line-height: 1.4;
   color: var(--muted-foreground);
   margin-top: 4px;
 }
@@ -1399,18 +1469,18 @@ form textarea::placeholder {
   width: 100%;
   background: none;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
 }
 .settings-row > span {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--secondary-text-font-size);
   color: var(--muted-foreground);
   display: flex;
   align-items: center;
   gap: var(--icon-text-gap);
 }
 .settings-note {
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
   line-height: 1.7;
   color: var(--muted-foreground);
   margin: 18px 0 12px;
@@ -1421,7 +1491,7 @@ form textarea::placeholder {
   gap: var(--icon-text-gap);
   margin-top: -3px;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: var(--secondary-text-font-size);
 }
 .delivery-note svg {
   width: 13px;
@@ -1455,7 +1525,7 @@ form textarea::placeholder {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
   font-weight: 500;
 }
 .reminder-item small {
@@ -1464,7 +1534,7 @@ form textarea::placeholder {
   gap: var(--icon-text-gap);
   margin-top: 5px;
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: var(--secondary-text-font-size);
 }
 .reminder-item small svg {
   width: 11px;
@@ -1479,7 +1549,7 @@ form textarea::placeholder {
   flex: 0 0 28px;
   overflow: hidden;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
 }
 .reminder-favicon img {
   position: absolute;
@@ -1512,12 +1582,12 @@ form textarea::placeholder {
 }
 .notification-empty strong {
   color: var(--foreground);
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
   font-weight: 500;
 }
 .notification-empty p {
   margin: 0;
-  font-size: 10px;
+  font-size: var(--secondary-text-font-size);
 }
 .app-dialog.settings-dialog {
   width: 680px;
@@ -1552,7 +1622,7 @@ form textarea::placeholder {
   background: transparent;
   color: var(--muted-foreground);
   text-align: left;
-  font-size: 10px;
+  font-size: var(--modal-body-font-size);
 }
 .settings-tabs button:hover,
 .settings-tabs button.active {
@@ -1569,7 +1639,8 @@ form textarea::placeholder {
 }
 .settings-panel h2 span {
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: var(--secondary-text-font-size);
   letter-spacing: 0;
 }
 .reminder-setting {
@@ -1585,13 +1656,13 @@ form textarea::placeholder {
   display: block;
 }
 .reminder-setting strong {
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
   font-weight: 500;
 }
 .reminder-setting small {
   margin-top: 4px;
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: var(--secondary-text-font-size);
 }
 .settings-switch {
   width: 32px;
@@ -1621,7 +1692,7 @@ form textarea::placeholder {
   max-width: 390px;
   margin: 12px 0 0;
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
   line-height: 1.8;
 }
 .about-mark {
@@ -1657,7 +1728,7 @@ form textarea::placeholder {
 .command-input {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--icon-text-gap);
   height: 46px;
   padding: 0 14px;
   border-bottom: 1px solid var(--border);
@@ -1671,7 +1742,7 @@ form textarea::placeholder {
   outline: 0;
   background: transparent;
   color: var(--foreground);
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
 }
 .command-input input:focus-visible {
   outline: 0;
@@ -1708,7 +1779,7 @@ form textarea::placeholder {
   background: none;
   color: var(--foreground);
   text-align: left;
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
 }
 .command-results > button:hover,
 .command-results > button:focus-visible,
@@ -1725,11 +1796,7 @@ form textarea::placeholder {
 .command-results .single-shortcut {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-}
-.command-results > a > span:nth-child(2) {
-  min-width: 0;
-  flex: 1;
+  gap: var(--icon-text-gap);
 }
 .command-results strong,
 .command-results small {
@@ -1739,23 +1806,53 @@ form textarea::placeholder {
   text-overflow: ellipsis;
 }
 .command-results strong {
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
   font-weight: 500;
+  line-height: 1.4;
 }
 .command-results small {
-  margin-top: 3px;
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: var(--secondary-text-font-size);
+  line-height: 1.4;
+}
+.command-bookmark-title,
+.command-bookmark-url {
+  min-width: 0;
+}
+.command-bookmark-title {
+  flex: 0 1 auto;
+}
+.command-bookmark-url {
+  flex: 1 1 auto;
+  margin-left: var(--icon-text-gap);
+}
+.command-external-link {
+  flex: 0 0 16px;
 }
 .command-favicon {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 25px;
-  height: 25px;
-  flex: 0 0 25px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  background: var(--secondary);
   font-family: var(--font-sans);
+}
+.command-favicon img {
+  position: absolute;
+  inset: 5px;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.command-favicon:has(img) > svg {
+  visibility: hidden;
+}
+.command-external-link {
+  color: var(--muted-foreground);
 }
 .extension-demo {
   background: var(--sidebar);
@@ -1765,13 +1862,13 @@ form textarea::placeholder {
   margin-bottom: 24px;
 }
 .extension-demo > span {
-  font-size: 10px;
+  font-size: var(--modal-body-font-size);
   color: var(--muted-foreground);
   display: block;
   margin-bottom: 12px;
 }
 .extension-demo > div {
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
   display: flex;
   gap: var(--icon-text-gap);
   align-items: center;
@@ -1783,7 +1880,7 @@ form textarea::placeholder {
   color: var(--accent-text);
 }
 .setup-steps {
-  font-size: 12px;
+  font-size: var(--modal-body-font-size);
   line-height: 1.8;
   padding-left: 18px;
   list-style: decimal;
@@ -1821,6 +1918,105 @@ form textarea::placeholder {
     opacity var(--panel-open-dur) var(--panel-ease),
     filter var(--panel-open-dur) var(--panel-ease);
 }
+.platform-launchers {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.platform-launcher-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.platform-launcher {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    color 160ms ease,
+    transform 180ms var(--panel-ease);
+}
+.platform-launcher svg {
+  width: 28px;
+  height: 28px;
+}
+.platform-launcher:hover {
+  transform: translateY(-2px) scale(1.06);
+}
+.platform-launcher:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.linux-launcher,
+.linux-callout {
+  --platform-color: #e09a22;
+}
+.mac-launcher,
+.mac-callout {
+  --platform-color: #0b84ff;
+}
+.platform-launcher {
+  color: var(--platform-color);
+}
+.platform-callout {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 2px);
+  z-index: 2;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: var(--body-font-size);
+  line-height: 20px;
+  animation: callout-fade-in 180ms ease-out both;
+}
+.callout-message {
+  display: block;
+  width: max-content;
+  max-width: min(310px, calc(100vw - 32px));
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--platform-color);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transform-origin: bottom right;
+  animation: callout-pop 380ms cubic-bezier(0.22, 1.35, 0.36, 1) 90ms both;
+}
+.callout-message > span {
+  border-bottom: 1px dashed #ffffffb3;
+  font-weight: 500;
+}
+.callout-dot {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  background: var(--platform-color);
+  transform: scale(0);
+  animation: callout-dot-in 120ms ease-out both;
+}
+.callout-dot.small {
+  right: -5px;
+  bottom: -10px;
+  width: 4px;
+  height: 4px;
+  animation-delay: 70ms;
+}
+.callout-dot.large {
+  right: -4px;
+  bottom: -4px;
+  width: 12px;
+  height: 12px;
+  animation-delay: 20ms;
+}
 .extension-panel {
   --panel-translate-y: calc(-100% - 20px);
   position: fixed;
@@ -1832,6 +2028,7 @@ form textarea::placeholder {
   max-width: calc(100vw - 20px);
   max-height: 100dvh;
   overflow-y: auto;
+  scrollbar-width: none;
   padding: 16px;
   border: 1px solid var(--border);
   border-top: 0;
@@ -1842,6 +2039,23 @@ form textarea::placeholder {
   color: var(--foreground);
   box-shadow: var(--shadow);
   outline: none;
+  font-family: var(--font-sans);
+  font-size: var(--modal-body-font-size);
+}
+.extension-panel::-webkit-scrollbar {
+  display: none;
+}
+.desktop-widget-panel {
+  --panel-translate-y: calc(100% + 20px);
+  top: auto;
+  bottom: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+}
+.linux-widget-token,
+.linux-connect-action {
+  margin-top: 14px;
 }
 .extension-panel-heading {
   display: flex;
@@ -1849,7 +2063,7 @@ form textarea::placeholder {
   gap: var(--icon-text-gap);
   margin-bottom: 18px;
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
 }
 .extension-panel-heading button {
   margin-left: auto;
@@ -1865,7 +2079,7 @@ form textarea::placeholder {
 }
 .extension-panel .setup-steps {
   margin-block: 0 16px;
-  font-size: 11px;
+  font-size: var(--modal-body-font-size);
 }
 .extension-panel .settings-note {
   margin: 0 0 16px;
@@ -1884,14 +2098,14 @@ form textarea::placeholder {
 .reminder-table-head,
 .reminder-table-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 104px 82px 48px 24px;
+  grid-template-columns: minmax(0, 1fr) 104px 96px 56px 24px;
   align-items: center;
   column-gap: 8px;
 }
 .reminder-table-head {
-  min-height: 28px;
+  min-height: 30px;
   color: var(--muted-foreground);
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1903,7 +2117,7 @@ form textarea::placeholder {
   white-space: nowrap;
 }
 .reminder-table-row {
-  min-height: 46px;
+  min-height: 54px;
   border-top: 1px solid var(--border);
 }
 .reminder-bookmark-cell {
@@ -1924,13 +2138,13 @@ form textarea::placeholder {
   white-space: nowrap;
 }
 .reminder-bookmark-cell strong {
-  font-size: 10px;
+  font-size: var(--modal-body-font-size);
   font-weight: 550;
 }
 .reminder-bookmark-cell small {
-  margin-top: 3px;
+  margin-top: 1px;
   color: var(--muted-foreground);
-  font-size: 8px;
+  font-size: var(--secondary-text-font-size);
 }
 .reminder-table-row .reminder-favicon {
   width: 24px;
@@ -1945,7 +2159,7 @@ form textarea::placeholder {
 }
 .reminder-table-cell {
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: var(--secondary-text-font-size);
 }
 .reminder-table-cell.reminder-status {
   margin-left: 0;
@@ -1965,31 +2179,17 @@ form textarea::placeholder {
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
-.widget-connect {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-.widget-connect-heading {
-  display: flex;
-  align-items: center;
-  gap: var(--icon-text-gap);
-  font-size: 11px;
-}
-.widget-connect-heading strong {
-  font-weight: 550;
-}
-.widget-connect > p {
+.widget-panel > p {
   margin: 8px 0 12px;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: var(--modal-body-font-size);
   line-height: 1.6;
 }
 .widget-setup-steps {
   margin: 0 0 12px;
   padding-left: 18px;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: var(--modal-body-font-size);
   line-height: 1.6;
 }
 .widget-setup-steps li + li {
@@ -1999,20 +2199,22 @@ form textarea::placeholder {
   color: var(--foreground);
   font-weight: 550;
 }
-.widget-connect > .widget-setup-note {
+.widget-panel > .widget-setup-note {
   margin-top: 0;
   padding: 8px;
   border: 1px solid var(--border);
   color: var(--foreground);
 }
-.widget-connect > button {
+.widget-panel > button,
+.widget-connect-action {
   width: 100%;
 }
-.widget-connect > small {
+.widget-panel > small,
+.widget-token-note {
   display: block;
   margin-top: 7px;
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: var(--secondary-text-font-size);
 }
 .widget-token {
   display: flex;
@@ -2029,7 +2231,7 @@ form textarea::placeholder {
   min-width: 0;
   overflow: hidden;
   flex: 1;
-  font-size: 9px;
+  font-size: var(--modal-body-font-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2048,7 +2250,7 @@ form textarea::placeholder {
   margin: 30px 0;
   padding: 20px;
   border: 1px solid #c56358;
-  font-size: 12px;
+  font-size: var(--body-font-size);
   border-radius: 8px;
 }
 .error-panel button {
@@ -2065,6 +2267,34 @@ form textarea::placeholder {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+@keyframes callout-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes callout-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.08);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes callout-dot-in {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 @keyframes account-menu-in {
@@ -2116,10 +2346,7 @@ form textarea::placeholder {
     padding: 0;
   }
   .collection-card strong {
-    font-size: 11px;
-  }
-  .pin-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    font-size: var(--body-font-size);
   }
   .bookmark-content {
     gap: 12px;
@@ -2158,11 +2385,6 @@ form textarea::placeholder {
     gap: 12px;
     padding: 16px 10px 7px;
   }
-  .library-tabs {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-self: center;
-  }
   .header-actions {
     grid-column: 2;
     grid-row: 1;
@@ -2177,6 +2399,9 @@ form textarea::placeholder {
   .collection-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .pin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .collection-card {
     padding: 0;
   }
@@ -2185,6 +2410,15 @@ form textarea::placeholder {
   }
   .collection-grid:has(.collection-card:nth-child(2n):last-child)::after {
     display: none;
+  }
+  .pin-card:nth-child(4n) {
+    border-right: 1px solid var(--border);
+  }
+  .pin-card:nth-child(2n) {
+    border-right: 0;
+  }
+  .pin-card:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
   }
   .section-toolbar {
     gap: 8px;
@@ -2199,10 +2433,7 @@ form textarea::placeholder {
   }
   .plain-button {
     padding: 6px 4px;
-    font-size: 11px;
-  }
-  .pin-grid {
-    grid-template-columns: 1fr;
+    font-size: var(--body-font-size);
   }
   .library-toolbar {
     flex-wrap: wrap;
@@ -2227,7 +2458,7 @@ form textarea::placeholder {
   }
   .bookmark-meta {
     margin-top: 3px;
-    font-size: 12px;
+    font-size: var(--secondary-text-font-size);
   }
   .selection-toolbar {
     bottom: 16px;
@@ -2236,11 +2467,11 @@ form textarea::placeholder {
     max-width: calc(100vw - 18px);
   }
   .selection-toolbar > span {
-    font-size: 10px;
+    font-size: var(--body-font-size);
     padding-right: 7px;
   }
   .selection-toolbar button {
-    font-size: 10px;
+    font-size: var(--body-font-size);
     padding: 7px;
   }
   .dialog-inner {
@@ -2250,14 +2481,14 @@ form textarea::placeholder {
     gap: 9px;
   }
   .theme-options small {
-    font-size: 7px;
+    font-size: var(--secondary-text-font-size);
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .selection-toolbar {
+  .selection-toolbar,
+  .floating-library-tabs {
     transform-origin: center bottom;
-    animation: selection-dock-in 360ms cubic-bezier(0.22, 1, 0.36, 1)
-      both;
+    animation: selection-dock-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
     will-change: transform, opacity;
   }
   .list-options-rail .plain-button {
@@ -2321,7 +2552,10 @@ form textarea::placeholder {
   .reminder-popover,
   .selection-toolbar,
   .app-dialog[open],
-  .list-options-menu[data-state] {
+  .list-options-menu[data-state],
+  .platform-callout,
+  .callout-message,
+  .callout-dot {
     animation: none;
   }
   button,
