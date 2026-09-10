@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { ArrowRight, Cross2 } from '$lib/components/icons/radix';
+  import TourNext from '$lib/components/icons/TourNext.svelte';
 
   let {
     open,
@@ -295,7 +296,7 @@
             }}
             >{step === steps.length - 1
               ? 'start collecting'
-              : 'next'}<ArrowRight size={13} /></button
+              : 'next'}<TourNext /></button
           >
         </div>
       </div>
@@ -328,7 +329,7 @@
     width: min(340px, calc(100vw - 24px));
     padding: 0;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 8px;
     background: var(--card);
     color: var(--foreground);
     box-shadow: var(--shadow);

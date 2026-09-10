@@ -137,7 +137,7 @@
             class="border-t border-border px-5 py-3 bg-secondary/50 flex items-center gap-1 mt-auto"
         >
             <button
-                class="flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors"
+                class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors"
                 onclick={handleCopy}
             >
                 {#if copyText === "Copied"}
@@ -170,7 +170,7 @@
                 })}
                     <button
                         class={cn(
-                            "flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors relative",
+                            "flex items-center gap-1 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors relative",
                             bookmark.reminderAt &&
                                 new Date(bookmark.reminderAt) > new Date() &&
                                 "text-primary bg-primary/10 hover:bg-primary/20",
@@ -198,7 +198,7 @@
             <div class="flex-1"></div>
 
             <button
-                class="flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors"
+                class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors"
                 onclick={() => onEdit(bookmark)}
             >
                 <Pencil class="w-4 h-4" />
@@ -206,7 +206,7 @@
             </button>
 
             <button
-                class="flex items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                class="flex items-center gap-1 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                 onclick={handleDelete}
             >
                 <Trash2 class="w-4 h-4" />

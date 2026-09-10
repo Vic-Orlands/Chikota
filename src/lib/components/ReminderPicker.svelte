@@ -147,7 +147,7 @@
     >
         <div class="p-4 w-[320px]">
             <div class="flex items-center justify-between mb-4">
-                <span class="text-sm font-semibold flex items-center gap-2">
+                <span class="text-sm font-semibold flex items-center gap-1">
                     <Clock class="h-4 w-4 text-primary" />
                     set reminder
                 </span>

@@ -1,9 +1,6 @@
 <script lang="ts">
-	import { CircleCheckIcon } from "$lib/components/icons/radix";
-	import { InfoIcon } from "$lib/components/icons/radix";
 	import { Loader2Icon } from "$lib/components/icons/radix";
-	import { OctagonXIcon } from "$lib/components/icons/radix";
-	import { TriangleAlertIcon } from "$lib/components/icons/radix";
+	import ToastStatus from "$lib/components/icons/ToastStatus.svelte";
 
 	import { Toaster as Sonner, type ToasterProps as SonnerProps } from "svelte-sonner";
 	import { mode } from "mode-watcher";
@@ -20,15 +17,15 @@
 		<Loader2Icon class="size-4 animate-spin" />
 	{/snippet}
 	{#snippet successIcon()}
-		<CircleCheckIcon class="size-4" />
+		<ToastStatus variant="success" class="size-4" />
 	{/snippet}
 	{#snippet errorIcon()}
-		<OctagonXIcon class="size-4" />
+		<ToastStatus variant="error" class="size-4" />
 	{/snippet}
 	{#snippet infoIcon()}
-		<InfoIcon class="size-4" />
+		<ToastStatus variant="info" class="size-4" />
 	{/snippet}
 	{#snippet warningIcon()}
-		<TriangleAlertIcon class="size-4" />
+		<ToastStatus variant="warning" class="size-4" />
 	{/snippet}
 </Sonner>
