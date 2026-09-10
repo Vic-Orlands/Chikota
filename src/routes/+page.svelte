@@ -1468,7 +1468,7 @@
         class="collection-section ruled-section"
         aria-labelledby="collections-heading"
       >
-        <div class="section-toolbar">
+        <div class="section-toolbar py-2!">
           <button
             class="section-toggle"
             aria-expanded={collectionsOpen}
@@ -1539,7 +1539,7 @@
           class="pinned-section ruled-section"
           aria-labelledby="pinned-heading"
         >
-          <div class="section-toolbar">
+          <div class="section-toolbar py-2!">
             <button
               class="section-toggle"
               aria-expanded={pinnedOpen}
@@ -1600,7 +1600,7 @@
           </div>
         </section>{/if}
       <section class="library-section ruled-section" aria-label="bookmarks">
-        <div class="section-toolbar library-toolbar">
+        <div class="section-toolbar library-toolbar py-2!">
           <div class="library-title">
             <BookmarkIcon size={15} />
             <h2>{heading}</h2>
@@ -1912,13 +1912,18 @@
     </main>
   </div>
 
+  <div
+    class="pointer-events-none fixed inset-x-0 bottom-0 z-20 mx-auto h-24 w-[calc(100%-40px)] max-w-170 bg-linear-to-t from-black/60 via-black/20 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:w-[calc(100%-20px)]"
+    aria-hidden="true"
+  ></div>
+
   {#if !selectedCollections.length && !selected.length}<nav
       class="library-tabs floating-library-tabs"
       aria-label="library"
     >
       <span
         class:opened={section === 'opened'}
-        class="tab-indicator"
+        class="tab-indicator bg-(--accent-soft)!"
         style:width={`${(section === 'opened' ? openedTabWidth : bookmarksTabWidth) + 2}px`}
         style:transform={`translateX(${section === 'opened' ? 0 : openedTabWidth}px)`}
         aria-hidden="true"

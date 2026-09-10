@@ -8,7 +8,6 @@ struct ChikotaApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(sync)
-                .onOpenURL(perform: BrowserRouter.open)
         }
     }
 }
