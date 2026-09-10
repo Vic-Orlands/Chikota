@@ -77,12 +77,12 @@
           >
         {/each}
       </div>
-      <button
+      <!-- <button
         type="button"
         class="plain-button"
         disabled={signingIn}
         onclick={signIn}>{signingIn ? 'redirecting…' : 'sign in'}</button
-      >
+      > -->
     </div>
   </header>
 

@@ -58,7 +58,7 @@
         class="sm:max-w-[380px] border-border/50 bg-card/98 backdrop-blur-xl p-0 gap-0 overflow-hidden"
     >
         <Dialog.Header class="p-4 pb-3 border-b border-border/30">
-            <Dialog.Title class="flex items-center gap-2 text-sm font-medium">
+            <Dialog.Title class="flex items-center gap-1 text-sm font-medium">
                 <div
                     class="w-6 h-6 rounded-md bg-secondary flex items-center justify-center"
                 >
@@ -72,7 +72,7 @@
             <!-- Appearance -->
             <div class="space-y-2.5">
                 <div
-                    class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
+                    class="flex items-center gap-1 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
                 >
                     <Palette class="h-3 w-3" />
                     appearance
@@ -101,7 +101,7 @@
              <!-- Reminders -->
              <div class="space-y-2.5">
                  <div
-                     class="flex items-center gap-2 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
+                     class="flex items-center gap-1 text-[11px] font-medium text-muted-foreground lowercase tracking-wider"
                  >
                      <Bell class="h-3 w-3" />
                      reminders
@@ -113,7 +113,7 @@
                      class="w-full h-8 text-xs btn-click-effect"
                      onclick={cancelAllReminders}
                  >
-                     <BellOff class="h-3 w-3 mr-2" />
+                     <BellOff class="h-3 w-3" />
                      cancel all reminders
                  </Button>
              </div>
@@ -121,7 +121,7 @@
              <!-- About -->
             <div class="space-y-2.5">
                 <div
-                    class="flex items-center gap-2 text-xs font-medium text-muted-foreground lowercase tracking-wider"
+                    class="flex items-center gap-1 text-xs font-medium text-muted-foreground lowercase tracking-wider"
                 >
                     <Info class="h-3 w-3" />
                     about

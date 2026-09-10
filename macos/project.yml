@@ -1,0 +1,51 @@
+name: Chikota
+options:
+  bundleIdPrefix: com.chikota
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+targets:
+  Chikota:
+    type: application
+    platform: macOS
+    sources:
+      - Chikota
+      - Shared
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    entitlements:
+      path: Chikota/Chikota.entitlements
+    info:
+      path: Chikota/Info.plist
+      properties:
+        CFBundleDisplayName: chikota
+        CFBundleURLTypes:
+          - CFBundleURLName: com.chikota.desktop
+            CFBundleURLSchemes:
+              - chikota
+        LSApplicationCategoryType: public.app-category.productivity
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    dependencies:
+      - target: ChikotaWidget
+        embed: true
+  ChikotaWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - ChikotaWidget
+      - Shared
+    entitlements:
+      path: ChikotaWidget/ChikotaWidget.entitlements
+    info:
+      path: ChikotaWidget/Info.plist
+      properties:
+        CFBundleDisplayName: chikota widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSSupportsLiveActivities: false

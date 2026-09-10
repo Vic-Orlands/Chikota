@@ -57,8 +57,20 @@ export const bookmarks = pgTable("bookmarks", {
     categoryId: text("categoryId"),
     reminderAt: timestamp("reminderAt"),
     reminderEmail: text("reminderEmail"),
+    isPinned: boolean("isPinned").notNull().default(false),
+    isRead: boolean("isRead").notNull().default(false),
+    widgetEnabled: boolean("widgetEnabled").notNull().default(false),
+    openedAt: timestamp("openedAt"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     updatedAt: timestamp("updatedAt").notNull().defaultNow()
+});
+
+export const widgetAccessTokens = pgTable("widget_access_token", {
+    id: text("id").primaryKey(),
+    userId: text("userId").notNull().references(() => user.id, { onDelete: 'cascade' }),
+    tokenHash: text("tokenHash").notNull().unique(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    lastUsedAt: timestamp("lastUsedAt")
 });
 
 export const categories = pgTable("categories", {

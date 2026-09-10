@@ -40,7 +40,7 @@
 
     <Dialog.Content class="sm:max-w-[500px]">
         <Dialog.Header>
-            <Dialog.Title class="flex items-center gap-2">
+            <Dialog.Title class="flex items-center gap-1">
                 <Bell class="h-5 w-5" />
                 your reminders
             </Dialog.Title>

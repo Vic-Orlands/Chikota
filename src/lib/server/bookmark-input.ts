@@ -8,6 +8,10 @@ export function bookmarkInput(body: Record<string, unknown>, partial = false) {
     categoryId?: string | null;
     reminderAt?: Date | null;
     reminderEmail?: string | null;
+    isPinned?: boolean;
+    isRead?: boolean;
+    widgetEnabled?: boolean;
+    openedAt?: Date | null;
     updatedAt: Date;
   } = { updatedAt: new Date() };
   if (!partial || body.url !== undefined) {
@@ -44,6 +48,15 @@ export function bookmarkInput(body: Record<string, unknown>, partial = false) {
   }
   if (body.reminderEmail !== undefined)
     values.reminderEmail = String(body.reminderEmail || '') || null;
+  if (body.isPinned !== undefined) values.isPinned = Boolean(body.isPinned);
+  if (body.isRead !== undefined) values.isRead = Boolean(body.isRead);
+  if (body.widgetEnabled !== undefined)
+    values.widgetEnabled = Boolean(body.widgetEnabled);
+  if (body.openedAt !== undefined) {
+    values.openedAt = body.openedAt ? new Date(String(body.openedAt)) : null;
+    if (values.openedAt && Number.isNaN(+values.openedAt))
+      error(400, 'Invalid opened date');
+  }
   let tagNames: string[] | undefined;
   if (body.tags !== undefined) {
     if (!Array.isArray(body.tags) || body.tags.length > 30)

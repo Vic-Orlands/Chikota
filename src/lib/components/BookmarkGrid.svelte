@@ -94,7 +94,7 @@
             class="flex items-center justify-center py-8"
         >
             {#if isLoadingMore}
-                <div class="flex items-center gap-2 text-muted-foreground">
+                <div class="flex items-center gap-1 text-muted-foreground">
                     <Spinner size="sm" color="muted" />
                     <span class="text-xs">loading more...</span>
                 </div>

@@ -154,7 +154,7 @@
         class="sm:max-w-[420px] border-border/50 bg-card/98 backdrop-blur-xl p-0 gap-0 overflow-hidden"
     >
         <Dialog.Header class="p-4 pb-3 border-b border-border/30">
-            <Dialog.Title class="flex items-center gap-2 text-sm font-medium">
+            <Dialog.Title class="flex items-center gap-1 text-sm font-medium">
                 <div
                     class="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center"
                 >
