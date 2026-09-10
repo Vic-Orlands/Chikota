@@ -9,7 +9,8 @@ function normalize(b: Bookmark & { description?: string }): Bookmark {
     tags: b.tags ?? [],
     categoryId: b.categoryId || '4',
     createdAt: new Date(b.createdAt),
-    reminderAt: b.reminderAt ? new Date(b.reminderAt) : undefined
+    reminderAt: b.reminderAt ? new Date(b.reminderAt) : undefined,
+    openedAt: b.openedAt ? new Date(b.openedAt) : undefined
   };
 }
 function createBookmarkStore() {

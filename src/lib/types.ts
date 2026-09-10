@@ -14,6 +14,10 @@ export interface Bookmark {
     createdAt: Date;
     reminderAt?: Date;
     reminderEmail?: string;
+    isPinned?: boolean;
+    isRead?: boolean;
+    widgetEnabled?: boolean;
+    openedAt?: Date;
 }
 
 export interface Category {
