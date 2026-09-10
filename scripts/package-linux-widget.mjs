@@ -9,5 +9,6 @@ execFileSync('zip', [
   'linux/install.sh',
   'linux/run-chikota-widget',
   'linux/chikota-widget.desktop',
-  'linux/README.md'
+  'linux/README.md',
+  'macos/Chikota/Assets.xcassets/AppIcon.appiconset/AppIcon-64.png'
 ]);

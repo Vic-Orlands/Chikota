@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Chikota Desktop Widget
-Comment=Pinned links, reminders, and recent opens from Chikota
+Comment=Browse and manage your Chikota library
 Exec=@BIN_ROOT@/chikota-widget
+Icon=@ICON_PATH@
 Terminal=false
 Categories=Utility;
 StartupNotify=false

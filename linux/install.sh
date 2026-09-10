@@ -17,8 +17,9 @@ fi
 
 mkdir -p "$install_root" "$bin_root" "$applications_root" "$autostart_root"
 install -m 0755 chikota_widget.py "$install_root/chikota_widget.py"
+install -m 0644 AppIcon-64.png "$install_root/chikota.png"
 install -m 0755 run-chikota-widget "$bin_root/chikota-widget"
-sed "s|@BIN_ROOT@|$bin_root|g" chikota-widget.desktop > "$applications_root/chikota-widget.desktop"
+sed -e "s|@BIN_ROOT@|$bin_root|g" -e "s|@ICON_PATH@|$install_root/chikota.png|g" chikota-widget.desktop > "$applications_root/chikota-widget.desktop"
 chmod 0644 "$applications_root/chikota-widget.desktop"
 cp "$applications_root/chikota-widget.desktop" "$autostart_root/chikota-widget.desktop"
 

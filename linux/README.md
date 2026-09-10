@@ -1,6 +1,8 @@
 # chikota desktop widget for Linux
 
-This package installs a small always-on-top desktop widget for X11 and Wayland desktops. It syncs bookmarks selected for the widget, pinned links, recent opens, and active reminders, then keeps the last successful response available offline.
+This package installs an always-on-top desktop library widget for X11 and Wayland desktops. Browse every bookmark, filter pinned links and collections, add or delete bookmarks, pin and unpin links, and create or remove collections without opening the browser. The last successful response remains available offline.
+
+Resize the widget freely between its compact and expanded limits. Its dimensions and desktop position are restored on the next launch.
 
 ## install
 

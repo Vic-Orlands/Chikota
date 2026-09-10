@@ -77,7 +77,6 @@ final class SyncManager: ObservableObject {
     }
 
     func refresh() async {
-        guard status != .offline else { return }
         guard let endpoint = endpoint(), !KeychainToken.load().isEmpty else {
             message = "add your chikota address and connection code."
             return
@@ -94,6 +93,7 @@ final class SyncManager: ObservableObject {
             let feed = try decoder.decode(WidgetFeed.self, from: data)
             snapshot = WidgetSnapshot(
                 items: feed.items,
+                categories: feed.categories,
                 syncedAt: feed.syncedAt,
                 isOnline: true,
                 browser: browser
@@ -119,6 +119,56 @@ final class SyncManager: ObservableObject {
         try? SharedStore.savePendingChanges(pending)
         persist()
         if status != .offline { await refresh() }
+    }
+
+    func setPinned(_ bookmark: WidgetBookmark, pinned: Bool) async {
+        guard let index = snapshot.items.firstIndex(where: { $0.id == bookmark.id }) else { return }
+        snapshot.items[index].isPinned = pinned
+        persist()
+        do {
+            try await mutate(method: "PATCH", body: ["id": bookmark.id, "isPinned": pinned])
+            await refresh()
+        } catch {
+            if let currentIndex = snapshot.items.firstIndex(where: { $0.id == bookmark.id }) {
+                snapshot.items[currentIndex].isPinned = bookmark.isPinned
+            }
+            message = "the bookmark could not be updated."
+            persist()
+        }
+    }
+
+    @discardableResult
+    func addBookmark(url: String, title: String, categoryId: String?) async -> Bool {
+        var body: [String: Any] = ["url": url, "title": title]
+        if let categoryId { body["categoryId"] = categoryId }
+        return await saveChange(method: "POST", body: body, failure: "the bookmark could not be added.")
+    }
+
+    @discardableResult
+    func createCategory(name: String) async -> Bool {
+        await saveChange(
+            method: "POST",
+            body: ["type": "category", "name": name],
+            failure: "the collection could not be created."
+        )
+    }
+
+    @discardableResult
+    func deleteBookmark(_ bookmark: WidgetBookmark) async -> Bool {
+        await saveChange(
+            method: "DELETE",
+            body: ["type": "bookmark", "id": bookmark.id],
+            failure: "the bookmark could not be deleted."
+        )
+    }
+
+    @discardableResult
+    func deleteCategory(_ category: WidgetCategory) async -> Bool {
+        await saveChange(
+            method: "DELETE",
+            body: ["type": "category", "id": category.id],
+            failure: "the collection could not be deleted."
+        )
     }
 
     private func networkChanged(_ online: Bool) {
@@ -152,6 +202,32 @@ final class SyncManager: ObservableObject {
             }
         }
         try SharedStore.savePendingChanges([])
+    }
+
+    private func saveChange(method: String, body: [String: Any], failure: String) async -> Bool {
+        do {
+            try await mutate(method: method, body: body)
+            await refresh()
+            return true
+        } catch {
+            message = failure
+            return false
+        }
+    }
+
+    private func mutate(method: String, body: [String: Any]) async throws {
+        guard let endpoint = endpoint(), !KeychainToken.load().isEmpty else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(KeychainToken.load())", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let statusCode = (response as? HTTPURLResponse)?.statusCode,
+              200..<300 ~= statusCode
+        else { throw URLError(.cannotWriteToFile) }
     }
 
     private func persist() {
