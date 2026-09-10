@@ -50,14 +50,20 @@
   --shadow: 0 18px 70px #00000018;
   --radius: 12px;
   --icon-text-gap: 4px;
+  --icon-icon-gap: 8px;
   --panel-open-dur: 400ms;
   --panel-close-dur: 350ms;
   --panel-translate-y: 100px;
   --panel-blur: 2px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --body-font-size: 14px;
-  --secondary-text-font-size: 12px;
+  --section-label-font-size: var(--body-font-size);
+  --secondary-text-font-size: var(--body-font-size);
   --modal-body-font-size: var(--body-font-size);
+  --icon-swap-dur: 200ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
 }
 [data-theme='forest'] {
   --background: #0c1510;
@@ -170,9 +176,14 @@ button:focus-visible {
 }
 svg {
   flex-shrink: 0;
+  scale: 1.08;
+  transform-origin: center;
+}
+.empty-mono svg {
+  scale: 1;
 }
 .reading-column {
-  width: min(680px, calc(100% - 40px));
+  width: min(720px, calc(100% - 40px));
   margin: 0 auto;
   min-height: 100dvh;
   border-inline: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
@@ -222,7 +233,7 @@ svg {
 }
 .library-tabs.floating-library-tabs button {
   min-height: 40px;
-  font-size: var(--body-font-size);
+  font-size: var(--section-label-font-size);
 }
 .library-tabs button {
   position: relative;
@@ -272,7 +283,7 @@ svg {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--icon-text-gap);
+  gap: var(--icon-icon-gap);
 }
 .header-actions > .search-trigger,
 .header-actions > .search-trigger:hover {
@@ -597,7 +608,7 @@ h2 {
   padding: 16px 12px;
 }
 .section-empty strong {
-  font-size: var(--body-font-size);
+  font-size: var(--section-label-font-size);
   font-weight: 500;
 }
 .section-empty p {
@@ -623,7 +634,7 @@ h2 {
 }
 .library-actions {
   display: flex;
-  gap: var(--icon-text-gap);
+  gap: var(--icon-icon-gap);
   align-items: center;
 }
 .library-actions > .plain-button,
@@ -739,7 +750,48 @@ h2 {
   justify-content: flex-end;
   min-height: 46px;
   width: max-content;
+  font-size: var(--section-label-font-size);
+}
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+}
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
+    filter var(--icon-swap-dur) var(--icon-swap-ease),
+    transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state='closed'] .t-icon[data-icon='closed'],
+.t-icon-swap[data-state='opened'] .t-icon[data-icon='opened'] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+.t-icon-swap[data-state='closed'] .t-icon[data-icon='opened'],
+.t-icon-swap[data-state='opened'] .t-icon[data-icon='closed'] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur));
+  transform: scale(var(--icon-swap-start-scale));
+}
+.date-icon-glyph {
+  display: grid;
+  transition: transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: transform;
+}
+.date-icon-swap[data-state='closed'] [data-icon='opened'] .date-icon-glyph {
+  transform: rotate(90deg);
+}
+.date-icon-swap[data-state='opened'] [data-icon='closed'] .date-icon-glyph {
+  transform: rotate(-90deg);
+}
+.date-summary-count {
   font-size: var(--body-font-size);
+}
+.date-group > .collapse-grid {
+  clip-path: inset(0 -24px);
 }
 .bookmark-items {
   width: 100%;
@@ -748,9 +800,6 @@ h2 {
   border-radius: 0;
   background: transparent;
   user-select: none;
-  overflow: visible;
-}
-.date-group > .collapse-grid.open > .collapse-inner {
   overflow: visible;
 }
 .bookmark-row {
@@ -916,7 +965,7 @@ h2 {
 .row-actions {
   display: flex;
   align-items: center;
-  gap: var(--icon-text-gap);
+  gap: var(--icon-icon-gap);
   margin-left: auto;
 }
 .row-actions .icon-button {
@@ -1338,8 +1387,6 @@ form textarea::placeholder {
   justify-content: flex-end;
   gap: 9px;
   margin-top: 23px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
 }
 .bookmark-form .dialog-actions,
 .collection-form .dialog-actions {
@@ -1947,6 +1994,7 @@ form textarea::placeholder {
 .platform-launcher svg {
   width: 28px;
   height: 28px;
+  scale: 1;
 }
 .platform-launcher:hover {
   transform: translateY(-2px) scale(1.06);
@@ -2104,8 +2152,9 @@ form textarea::placeholder {
 }
 .reminder-table-head {
   min-height: 30px;
+  background: var(--secondary);
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: var(--modal-body-font-size);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -2119,6 +2168,7 @@ form textarea::placeholder {
 .reminder-table-row {
   min-height: 54px;
   border-top: 1px solid var(--border);
+  transition: opacity 160ms ease;
 }
 .reminder-bookmark-cell {
   min-width: 0;
@@ -2172,7 +2222,7 @@ form textarea::placeholder {
 }
 .reminder-table-row.done,
 .reminder-table-row.canceled {
-  opacity: 0.55;
+  opacity: 0.32;
 }
 .reminder-table-row.done strong,
 .reminder-table-row.canceled strong {
@@ -2531,7 +2581,7 @@ form textarea::placeholder {
     transition: background-color 140ms ease;
   }
   .chevron {
-    transition: transform 160ms ease-out;
+    transition: transform 200ms ease-in-out;
   }
   .tab-indicator {
     transition:
@@ -2542,6 +2592,11 @@ form textarea::placeholder {
     transition:
       grid-template-rows 200ms cubic-bezier(0.645, 0.045, 0.355, 1),
       opacity 150ms ease-out;
+  }
+  .date-group > .collapse-grid {
+    transition:
+      grid-template-rows 240ms cubic-bezier(0.645, 0.045, 0.355, 1),
+      opacity 180ms ease-in-out;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2565,6 +2620,15 @@ form textarea::placeholder {
     transition: none;
   }
   .list-options-rail .plain-button {
+    transition: none;
+  }
+  .t-icon-swap .t-icon {
+    transition: none !important;
+  }
+  .date-icon-glyph {
+    transition: none;
+  }
+  .reminder-table-row {
     transition: none;
   }
 }
