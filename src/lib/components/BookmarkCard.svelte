@@ -8,9 +8,8 @@
         Trash2,
         Pencil,
         Clock,
-        Copy,
-        CircleCheckBig,
     } from "$lib/components/icons/radix";
+    import { onDestroy } from "svelte";
     import { bookmarks } from "$lib/stores/bookmarks";
     import { categories, categoryColorClasses } from "$lib/stores/categories";
     import { format } from "date-fns";
@@ -19,6 +18,7 @@
     import ReminderPicker from "$lib/components/ReminderPicker.svelte";
     import DefaultFavicon from "$lib/components/icons/DefaultFavicon.svelte";
     import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+    import CopyIconSwap from "$lib/components/CopyIconSwap.svelte";
 
     let {
         bookmark,
@@ -38,6 +38,7 @@
 
     let isDeleting = $state(false);
     let copyText = $state("Copy");
+    let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
     let faviconError = $state(false);
     let showDeleteConfirm = $state(false);
 
@@ -60,11 +61,24 @@
         }, 150);
     }
 
-    function handleCopy() {
-        navigator.clipboard.writeText(bookmark.url);
-        copyText = "Copied";
-        setTimeout(() => (copyText = "Copy"), 2000);
+    async function handleCopy() {
+        if (copyResetTimer) clearTimeout(copyResetTimer);
+
+        try {
+            await navigator.clipboard.writeText(bookmark.url);
+            copyText = "Copied";
+            copyResetTimer = setTimeout(() => (copyText = "Copy"), 2000);
+        } catch {
+            copyText = "Copy";
+            toast.error(
+                "clipboard is unavailable. open the bookmark to copy its address.",
+            );
+        }
     }
+
+    onDestroy(() => {
+        if (copyResetTimer) clearTimeout(copyResetTimer);
+    });
 </script>
 
 {#if viewMode === "grid"}
@@ -139,12 +153,9 @@
             <button
                 class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground hover:bg-background rounded-lg transition-colors"
                 onclick={handleCopy}
+                aria-label={copyText === "Copied" ? "link copied" : "copy link"}
             >
-                {#if copyText === "Copied"}
-                    <CircleCheckBig class="w-4 h-4" />
-                {:else}
-                    <Copy class="w-4 h-4" />
-                {/if}
+                <CopyIconSwap copied={copyText === "Copied"} size={16} />
                 <span>{copyText}</span>
             </button>
 
@@ -283,12 +294,9 @@
                 size="icon"
                 class="h-6 w-6 btn-click-effect"
                 onclick={handleCopy}
+                aria-label={copyText === "Copied" ? "link copied" : "copy link"}
             >
-                {#if copyText === "Copied"}
-                    <CircleCheckBig class="h-3 w-3" />
-                {:else}
-                    <Copy class="h-3 w-3" />
-                {/if}
+                <CopyIconSwap copied={copyText === "Copied"} size={12} />
             </Button>
             <Button
                 variant="ghost"

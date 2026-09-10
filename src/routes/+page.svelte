@@ -16,8 +16,8 @@
   import EmptyMono from '$lib/components/EmptyMono.svelte';
   import WelcomeGuide from '$lib/components/WelcomeGuide.svelte';
   import LandingPage from '$lib/components/LandingPage.svelte';
+  import CopyIconSwap from '$lib/components/CopyIconSwap.svelte';
   import ActionBell from '$lib/components/icons/ActionBell.svelte';
-  import ActionCopy from '$lib/components/icons/ActionCopy.svelte';
   import ActionEdit from '$lib/components/icons/ActionEdit.svelte';
   import ActionRead from '$lib/components/icons/ActionRead.svelte';
   import ActionSettings from '$lib/components/icons/ActionSettings.svelte';
@@ -28,6 +28,7 @@
   import GuestUser from '$lib/components/icons/GuestUser.svelte';
   import GuideLauncher from '$lib/components/icons/GuideLauncher.svelte';
   import KeyboardDown from '$lib/components/icons/KeyboardDown.svelte';
+  import MacWidgetLauncher from '$lib/components/icons/MacWidgetLauncher.svelte';
   import ReminderDone from '$lib/components/icons/ReminderDone.svelte';
   import SearchGrid from '$lib/components/icons/SearchGrid.svelte';
   import SaveCloud from '$lib/components/icons/SaveCloud.svelte';
@@ -129,6 +130,8 @@
   let widgetToken = $state('');
   let widgetTokenBusy = $state(false);
   let widgetTokenError = $state('');
+  let copiedTargets = $state<string[]>([]);
+  const copyResetTimers: Record<string, number> = {};
   let editing = $state<Bookmark | null>(null);
   let url = $state('');
   let title = $state('');
@@ -316,6 +319,8 @@
     return () => {
       window.clearInterval(reminderTimer);
       window.removeEventListener('storage', refresh);
+      for (const timer of Object.values(copyResetTimers))
+        window.clearTimeout(timer);
     };
   });
   async function initialize() {
@@ -484,7 +489,7 @@
     dialog?.close();
     modal = null;
   }
-  async function openExtensionPanel() {
+  async function openExtensionPanel(target: 'extension' | 'widget' = 'extension') {
     closeContext();
     closeReminderPopover();
     closeRemindersPanel();
@@ -494,7 +499,18 @@
     await tick();
     requestAnimationFrame(() => {
       extensionPanelOpen = true;
-      extensionPanel?.focus({ preventScroll: true });
+      if (target === 'widget') {
+        const widgetSection = document.getElementById('widget-connect');
+        if (extensionPanel && widgetSection) {
+          extensionPanel.scrollTo({
+            top: widgetSection.offsetTop - 16,
+            behavior: 'smooth'
+          });
+          widgetSection.focus({ preventScroll: true });
+        }
+      } else {
+        extensionPanel?.focus({ preventScroll: true });
+      }
     });
   }
   function closeExtensionPanel() {
@@ -544,8 +560,23 @@
     }
   }
   async function copyWidgetToken() {
-    await navigator.clipboard.writeText(widgetToken);
-    toast.success('mac connection code copied');
+    try {
+      await navigator.clipboard.writeText(widgetToken);
+      showCopied('widget-token');
+      toast.success('mac connection code copied');
+    } catch {
+      toast.error('clipboard is unavailable. select and copy the code instead.');
+    }
+  }
+  function showCopied(target: string) {
+    const existingTimer = copyResetTimers[target];
+    if (existingTimer) window.clearTimeout(existingTimer);
+    if (!copiedTargets.includes(target))
+      copiedTargets = [...copiedTargets, target];
+    copyResetTimers[target] = window.setTimeout(() => {
+      copiedTargets = copiedTargets.filter((value) => value !== target);
+      delete copyResetTimers[target];
+    }, 2000);
   }
   async function saveBookmark(event: SubmitEvent) {
     event.preventDefault();
@@ -991,6 +1022,7 @@
   async function copyLink(b: Bookmark) {
     try {
       await navigator.clipboard.writeText(b.url);
+      showCopied(`bookmark:${b.id}`);
       toast.success('link copied');
     } catch {
       toast.error(
@@ -1296,7 +1328,12 @@
         <DropdownMenu.Root>
           <DropdownMenu.Trigger
             data-tour="account"
-            class="icon-button notification-trigger"
+            class={[
+              'icon-button notification-trigger',
+              data.session
+                ? 'h-auto! w-auto! rounded-none! bg-transparent! hover:bg-transparent!'
+                : 'size-7.5! rounded-[5px]! bg-secondary! text-foreground! hover:bg-secondary!'
+            ]}
             aria-label="account menu"
             title="account menu"
             >{#if data.session}{#if data.session.user.image}<img
@@ -1329,7 +1366,7 @@
               >
               <DropdownMenu.Item
                 class="list-options-item"
-                onSelect={openExtensionPanel}
+                onSelect={() => void openExtensionPanel()}
                 ><BrowserExtension size={14} />browser extension</DropdownMenu.Item
               >
               {#if data.session}<DropdownMenu.Item
@@ -1596,7 +1633,7 @@
                   {#if collapsedGroups.includes(group.date)}
                     <button
                       type="button"
-                      class="flex w-full flex-col gap-[6px] px-0 pt-0 pb-2"
+                      class="flex w-full flex-col gap-1.5 px-0 pt-0 pb-2"
                       aria-label={`expand ${group.items.length} bookmarks from ${group.date}`}
                       onclick={() => toggleGroup(group.date)}
                     >
@@ -1743,12 +1780,21 @@
                               }}><Pin size={14} /></button
                             ><button
                               class="icon-button"
-                              aria-label={`copy link for ${b.title}`}
+                              aria-label={copiedTargets.includes(
+                                `bookmark:${b.id}`
+                              )
+                                ? `link copied for ${b.title}`
+                                : `copy link for ${b.title}`}
                               title="copy link"
                               onclick={(event) => {
                                 event.stopPropagation();
                                 void copyLink(b);
-                              }}><ActionCopy size={14} /></button
+                              }}><CopyIconSwap
+                                copied={copiedTargets.includes(
+                                  `bookmark:${b.id}`
+                                )}
+                                size={14}
+                              /></button
                             >
                             <button
                               class="icon-button"
@@ -1795,8 +1841,22 @@
     </main>
   </div>
 
+  <button
+    type="button"
+    class="fixed right-5 bottom-5 z-40 grid size-8 place-items-center bg-transparent p-0 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    aria-label="install the mac desktop widget"
+    aria-haspopup="dialog"
+    aria-controls="extension-panel"
+    aria-expanded={extensionPanelOpen}
+    title="mac desktop widget"
+    onclick={() => void openExtensionPanel('widget')}
+  >
+    <MacWidgetLauncher />
+  </button>
+
   {#if extensionPanelMounted}<div
       bind:this={extensionPanel}
+      id="extension-panel"
       class="extension-panel t-panel-slide"
       data-open={extensionPanelOpen}
       role="dialog"
@@ -1847,19 +1907,47 @@
         href="/chikota-extension.zip"
         download><Download />download extension</a
       >
-      <section class="widget-connect">
+      <section
+        id="widget-connect"
+        class="widget-connect"
+        tabindex="-1"
+        aria-labelledby="widget-connect-title"
+      >
         <div class="widget-connect-heading">
-          <GuideLauncher size={16} /><strong>mac desktop widget</strong>
+          <GuideLauncher size={16} /><strong id="widget-connect-title"
+            >mac desktop widget</strong
+          >
         </div>
         <p>
           reminders, pinned links, and recent opens stay available from your
           desktop, including while offline.
         </p>
+        <ol class="widget-setup-steps">
+          <li>
+            run the <strong>Chikota</strong> macOS app from the included Xcode
+            project.
+          </li>
+          <li>
+            create a connection code below, then paste it and this site’s
+            address into the Mac app and choose <strong>connect</strong>.
+          </li>
+          <li>
+            control-click the Mac desktop, choose <strong>Edit Widgets</strong>,
+            search for <strong>chikota</strong>, and add the widget.
+          </li>
+        </ol>
+        <p class="widget-setup-note">
+          The connection code links your account; macOS installs the widget with
+          the companion app.
+        </p>
         {#if data.session}
           {#if widgetToken}<button
               class="widget-token"
-              aria-label="copy mac connection code"
-              onclick={copyWidgetToken}><code>{widgetToken}</code><ActionCopy
+              aria-label={copiedTargets.includes('widget-token')
+                ? 'mac connection code copied'
+                : 'copy mac connection code'}
+              onclick={copyWidgetToken}><code>{widgetToken}</code><CopyIconSwap
+                copied={copiedTargets.includes('widget-token')}
                 size={14}
               /></button
             ><small>shown once. paste this code into the mac app.</small

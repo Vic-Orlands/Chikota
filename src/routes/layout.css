@@ -254,17 +254,6 @@ svg {
   justify-content: flex-end;
   gap: var(--icon-text-gap);
 }
-.header-actions > .notification-trigger {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border-radius: 5px;
-  background: var(--secondary);
-  color: var(--foreground);
-}
-.header-actions > .notification-trigger:hover {
-  background: color-mix(in srgb, var(--foreground) 10%, var(--sidebar));
-}
 .header-actions > .search-trigger,
 .header-actions > .search-trigger:hover {
   padding: 0;
@@ -1995,6 +1984,26 @@ form textarea::placeholder {
   color: var(--muted-foreground);
   font-size: 10px;
   line-height: 1.6;
+}
+.widget-setup-steps {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.widget-setup-steps li + li {
+  margin-top: 6px;
+}
+.widget-setup-steps strong {
+  color: var(--foreground);
+  font-weight: 550;
+}
+.widget-connect > .widget-setup-note {
+  margin-top: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  color: var(--foreground);
 }
 .widget-connect > button {
   width: 100%;
