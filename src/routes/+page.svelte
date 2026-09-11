@@ -1939,7 +1939,7 @@
   </div>
 
   <div
-    class="pointer-events-none fixed inset-x-0 bottom-0 z-20 mx-auto h-24 w-[calc(100%-40px)] max-w-180 bg-linear-to-t from-black/60 via-black/20 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:w-[calc(100%-20px)]"
+    class="fixed inset-x-0 bottom-0 z-20 mx-auto h-40 w-[calc(100%-40px)] max-w-180 bg-linear-to-t from-background via-background/80 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:w-[calc(100%-20px)]"
     aria-hidden="true"
   ></div>
 
