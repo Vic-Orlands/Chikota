@@ -24,6 +24,7 @@
   import BrowserExtension from '$lib/components/icons/BrowserExtension.svelte';
   import CollapseAll from '$lib/components/icons/CollapseAll.svelte';
   import DeleteTrash from '$lib/components/icons/DeleteTrash.svelte';
+  import DateGroupOpen from '$lib/components/icons/DateGroupOpen.svelte';
   import EllipsisVertical from '$lib/components/icons/EllipsisVertical.svelte';
   import GuestUser from '$lib/components/icons/GuestUser.svelte';
   import GuideLauncher from '$lib/components/icons/GuideLauncher.svelte';
@@ -1691,200 +1692,225 @@
                 onclick={() => toggleGroup(group.date)}
                 ><span>{group.date}</span><span class="count"
                   >{group.items.length}</span
-                ><ChevronDown
-                  size={14}
-                  class={!collapsedGroups.includes(group.date)
-                    ? 'chevron expanded'
-                    : 'chevron'}
-                /></button
+                ><span
+                  class="t-icon-swap date-icon-swap"
+                  data-state={collapsedGroups.includes(group.date)
+                    ? 'closed'
+                    : 'opened'}
+                  aria-hidden="true"
+                >
+                  <span class="t-icon" data-icon="closed"
+                    ><span class="date-icon-glyph"
+                      ><ChevronDown size={15} /></span
+                    ></span
+                  >
+                  <span class="t-icon" data-icon="opened"
+                    ><span class="date-icon-glyph"
+                      ><DateGroupOpen size={15} /></span
+                    ></span
+                  >
+                </span></button
               >
-              <div class="collapse-grid open">
+              <div
+                class="collapse-grid date-summary-collapse"
+                class:open={collapsedGroups.includes(group.date)}
+                inert={!collapsedGroups.includes(group.date) ? true : undefined}
+                aria-hidden={!collapsedGroups.includes(group.date)}
+              >
                 <div class="collapse-inner">
-                  {#if collapsedGroups.includes(group.date)}
-                    <button
-                      type="button"
-                      class="flex w-full flex-col gap-1.5 px-0 pt-0 pb-2"
-                      aria-label={`expand ${group.items.length} bookmarks from ${group.date}`}
-                      onclick={() => toggleGroup(group.date)}
-                    >
-                      {#each { length: Math.min(group.items.length, 5) }, i}
-                        <span
-                          class={[
-                            'block h-0 w-full border-b border-dotted border-border',
-                            i === 0 && 'opacity-90',
-                            i === 1 && 'opacity-70',
-                            i === 2 && 'opacity-50',
-                            i === 3 && 'opacity-35',
-                            i === 4 && 'opacity-20'
-                          ]}
-                        ></span>
-                      {/each}
+                  <button
+                    type="button"
+                    class="flex w-full flex-col gap-1.5 px-0 pt-0 pb-2"
+                    aria-label={`expand ${group.items.length} bookmarks from ${group.date}`}
+                    onclick={() => toggleGroup(group.date)}
+                  >
+                    {#each { length: Math.min(group.items.length, 5) }, i}
                       <span
-                        class="text-center text-[10px] leading-none text-muted-foreground"
-                        >{group.items.length}
-                        {group.items.length === 1 ? 'link' : 'links'}</span
-                      >
-                    </button>
-                  {:else}
-                    <div
-                      class="bookmark-items"
-                      role="listbox"
-                      tabindex="-1"
-                      aria-multiselectable="true"
-                      aria-label={`bookmarks saved ${group.date}; drag across rows to select`}
-                      onpointerdown={startDrag}
+                        class={[
+                          'block h-0 w-full border-b border-dotted border-border',
+                          i === 0 && 'opacity-90',
+                          i === 1 && 'opacity-70',
+                          i === 2 && 'opacity-50',
+                          i === 3 && 'opacity-35',
+                          i === 4 && 'opacity-20'
+                        ]}
+                      ></span>
+                    {/each}
+                    <span
+                      class="date-summary-count text-center leading-none text-muted-foreground"
+                      >{group.items.length}
+                      {group.items.length === 1 ? 'link' : 'links'}</span
                     >
-                      {#each group.items as b (b.id)}
-                        <div
-                          data-bookmark={b.id}
-                          class="bookmark-row"
-                          role="option"
-                          tabindex="0"
-                          aria-selected={selected.includes(b.id)}
-                          class:selected={selected.includes(b.id)}
-                          class:is-read={flags[b.id]?.read}
-                          class:context-active={context?.bookmark?.id === b.id}
-                          onclick={(event) => {
-                            if (dragging) {
-                              event.preventDefault();
-                              dragging = false;
-                              return;
-                            }
-                            if (
-                              (event.target as HTMLElement).closest(
-                                'button,input'
-                              )
-                            )
-                              return;
+                  </button>
+                </div>
+              </div>
+              <div
+                class="collapse-grid date-bookmarks-collapse"
+                class:open={!collapsedGroups.includes(group.date)}
+                inert={collapsedGroups.includes(group.date) ? true : undefined}
+                aria-hidden={collapsedGroups.includes(group.date)}
+              >
+                <div class="collapse-inner">
+                  <div
+                    class="bookmark-items"
+                    role="listbox"
+                    tabindex="-1"
+                    aria-multiselectable="true"
+                    aria-label={`bookmarks saved ${group.date}; drag across rows to select`}
+                    onpointerdown={startDrag}
+                  >
+                    {#each group.items as b (b.id)}
+                      <div
+                        data-bookmark={b.id}
+                        class="bookmark-row"
+                        role="option"
+                        tabindex="0"
+                        aria-selected={selected.includes(b.id)}
+                        class:selected={selected.includes(b.id)}
+                        class:is-read={flags[b.id]?.read}
+                        class:context-active={context?.bookmark?.id === b.id}
+                        onclick={(event) => {
+                          if (dragging) {
                             event.preventDefault();
-                            if (
-                              !selectBookmarkRange(
-                                event,
-                                b.id,
-                                visible.map((bookmark) => bookmark.id)
-                              )
+                            dragging = false;
+                            return;
+                          }
+                          if (
+                            (event.target as HTMLElement).closest(
+                              'a,button,input'
                             )
-                              selectBookmark(b.id);
-                          }}
-                          onkeydown={(event) => {
-                            if (
-                              event.target !== event.currentTarget ||
-                              !['Enter', ' '].includes(event.key)
+                          )
+                            return;
+                          event.preventDefault();
+                          if (
+                            !selectBookmarkRange(
+                              event,
+                              b.id,
+                              visible.map((bookmark) => bookmark.id)
                             )
-                              return;
-                            event.preventDefault();
+                          )
                             selectBookmark(b.id);
-                          }}
-                          oncontextmenu={(e) => {
-                            e.stopPropagation();
-                            void showContext(e, b);
-                          }}
-                          aria-label={b.title}
-                        >
-                          <div class="bookmark-leading">
-                            <span
-                              class="site-letter"
-                              class:show-check={selectMode ||
-                                selected.includes(b.id)}
-                              ><Globe size={18} /><img
-                                src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
-                                alt=""
-                                onerror={(event) =>
-                                  event.currentTarget.remove()}
-                              /></span
-                            ><input
-                              class="row-check"
-                              class:check-visible={selectMode ||
-                                selected.includes(b.id)}
-                              type="checkbox"
-                              checked={selected.includes(b.id)}
-                              onclick={(event) => {
-                                if (
-                                  !selectBookmarkRange(
-                                    event,
-                                    b.id,
-                                    visible.map((bookmark) => bookmark.id)
-                                  )
+                        }}
+                        onkeydown={(event) => {
+                          if (
+                            event.target !== event.currentTarget ||
+                            !['Enter', ' '].includes(event.key)
+                          )
+                            return;
+                          event.preventDefault();
+                          selectBookmark(b.id);
+                        }}
+                        oncontextmenu={(e) => {
+                          e.stopPropagation();
+                          void showContext(e, b);
+                        }}
+                        aria-label={b.title}
+                      >
+                        <div class="bookmark-leading">
+                          <span
+                            class="site-letter"
+                            class:show-check={selectMode ||
+                              selected.includes(b.id)}
+                            ><Globe size={18} /><img
+                              src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
+                              alt=""
+                              onerror={(event) => event.currentTarget.remove()}
+                            /></span
+                          ><input
+                            class="row-check"
+                            class:check-visible={selectMode ||
+                              selected.includes(b.id)}
+                            type="checkbox"
+                            checked={selected.includes(b.id)}
+                            onclick={(event) => {
+                              if (
+                                !selectBookmarkRange(
+                                  event,
+                                  b.id,
+                                  visible.map((bookmark) => bookmark.id)
                                 )
-                                  event.stopPropagation();
-                              }}
-                              onchange={() => toggleSelect(b.id)}
-                              aria-label={`select ${b.title}`}
-                            />
-                          </div>
-                          <div class="bookmark-content">
-                            <a
-                              class="bookmark-title"
-                              href={b.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              >{b.title}<ArrowUpRight size={14} /></a
-                            >
-                            <div class="bookmark-meta">
-                              <span>{domain(b.url)}</span>
-                            </div>
-                          </div>
-                          <div class="row-actions">
-                            <button
-                              class="icon-button"
-                              class:reminder-active={reminderStatus(b) ===
-                                'active' && !!b.reminderAt}
-                              aria-label={`remind me about ${b.title}`}
-                              title={b.reminderAt
-                                ? formatReminder(b.reminderAt)
-                                : 'set reminder'}
-                              onclick={(event) =>
-                                void showReminderPopover(event, b)}
-                              ><ActionBell size={14} /></button
-                            >
-                            <button
-                              class="icon-button"
-                              class:pinned={flags[b.id]?.pinned}
-                              aria-label={flags[b.id]?.pinned
-                                ? `unpin ${b.title}`
-                                : `pin ${b.title}`}
-                              title={flags[b.id]?.pinned ? 'unpin' : 'pin'}
-                              onclick={(event) => {
-                                event.stopPropagation();
-                                toggleFlag(b.id, 'pinned');
-                              }}><Pin size={14} /></button
-                            ><button
-                              class="icon-button"
-                              aria-label={copiedTargets.includes(
-                                `bookmark:${b.id}`
                               )
-                                ? `link copied for ${b.title}`
-                                : `copy link for ${b.title}`}
-                              title="copy link"
-                              onclick={(event) => {
                                 event.stopPropagation();
-                                void copyLink(b);
-                              }}
-                              ><CopyIconSwap
-                                copied={copiedTargets.includes(
-                                  `bookmark:${b.id}`
-                                )}
-                                size={14}
-                              /></button
-                            >
-                            <button
-                              class="icon-button"
-                              title="more options"
-                              aria-label={`more options for ${b.title}`}
-                              onclick={(e) => showContext(e, b)}
-                              ><EllipsisVertical size={16} /></button
-                            >
-                          </div>
-                          {#if b.reminderAt && reminderStatus(b) === 'done'}<span
-                              class="reminder-done-marker"
-                              title="reminder completed"
-                              aria-label="reminder completed"
-                              ><ReminderDone size={16} /></span
-                            >{/if}
+                            }}
+                            onchange={() => toggleSelect(b.id)}
+                            aria-label={`select ${b.title}`}
+                          />
                         </div>
-                      {/each}
-                    </div>
-                  {/if}
+                        <div class="bookmark-content">
+                          <a
+                            class="bookmark-title"
+                            href={b.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onclick={(event) => {
+                              event.stopPropagation();
+                              recordOpen(b.id);
+                            }}>{b.title}<ArrowUpRight size={14} /></a
+                          >
+                          <div class="bookmark-meta">
+                            <span>{b.url}</span>
+                          </div>
+                        </div>
+                        <div class="row-actions">
+                          <button
+                            class="icon-button"
+                            class:reminder-active={reminderStatus(b) ===
+                              'active' && !!b.reminderAt}
+                            aria-label={`remind me about ${b.title}`}
+                            title={b.reminderAt
+                              ? formatReminder(b.reminderAt)
+                              : 'set reminder'}
+                            onclick={(event) =>
+                              void showReminderPopover(event, b)}
+                            ><ActionBell size={14} /></button
+                          >
+                          <button
+                            class="icon-button"
+                            class:pinned={flags[b.id]?.pinned}
+                            aria-label={flags[b.id]?.pinned
+                              ? `unpin ${b.title}`
+                              : `pin ${b.title}`}
+                            title={flags[b.id]?.pinned ? 'unpin' : 'pin'}
+                            onclick={(event) => {
+                              event.stopPropagation();
+                              toggleFlag(b.id, 'pinned');
+                            }}><Pin size={14} /></button
+                          ><button
+                            class="icon-button"
+                            aria-label={copiedTargets.includes(
+                              `bookmark:${b.id}`
+                            )
+                              ? `link copied for ${b.title}`
+                              : `copy link for ${b.title}`}
+                            title="copy link"
+                            onclick={(event) => {
+                              event.stopPropagation();
+                              void copyLink(b);
+                            }}
+                            ><CopyIconSwap
+                              copied={copiedTargets.includes(
+                                `bookmark:${b.id}`
+                              )}
+                              size={14}
+                            /></button
+                          >
+                          <button
+                            class="icon-button"
+                            title="more options"
+                            aria-label={`more options for ${b.title}`}
+                            onclick={(e) => showContext(e, b)}
+                            ><EllipsisVertical size={16} /></button
+                          >
+                        </div>
+                        {#if b.reminderAt && reminderStatus(b) === 'done'}<span
+                            class="reminder-done-marker"
+                            title="reminder completed"
+                            aria-label="reminder completed"
+                            ><ReminderDone size={16} /></span
+                          >{/if}
+                      </div>
+                    {/each}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1913,7 +1939,7 @@
   </div>
 
   <div
-    class="pointer-events-none fixed inset-x-0 bottom-0 z-20 mx-auto h-24 w-[calc(100%-40px)] max-w-170 bg-linear-to-t from-black/60 via-black/20 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:w-[calc(100%-20px)]"
+    class="fixed inset-x-0 bottom-0 z-20 mx-auto h-40 w-[calc(100%-40px)] max-w-180 bg-linear-to-t from-background via-background/80 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:w-[calc(100%-20px)]"
     aria-hidden="true"
   ></div>
 
