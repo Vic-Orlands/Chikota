@@ -2845,7 +2845,7 @@
       onfocusout={hideSelectionTooltip}
     >
       <div
-        class="pointer-events-none absolute bottom-[calc(100%+20px)] left-0 [z-index:1] [&.warm]:[will-change:transform] motion-safe:[&.warm]:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
+        class="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 [z-index:1] [&.warm]:[will-change:transform] motion-safe:[&.warm]:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
         class:warm={selectionTooltipWarm}
         style:transform={`translateX(${selectionTooltip.x}px)`}
       >
@@ -2853,26 +2853,23 @@
           id="selection-dock-tooltip"
           role="tooltip"
           aria-hidden={!selectionTooltip.visible}
-          class="relative isolate rounded-[15px] border border-border bg-card px-3.5 py-2 text-[12px] leading-none text-foreground opacity-0 shadow-(--shadow) [transform:translate(-50%,_12px)_scale(0.62,_0.36)] [transform-origin:center_calc(100%+18px)] [will-change:transform,_opacity] motion-safe:[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_opacity_110ms_ease-out] motion-reduce:transition-none [&.visible]:[transform:translate(-50%,_0)_scale(1)] [&.visible]:opacity-100"
+          class="flex flex-col items-center origin-bottom opacity-0 [transform:translate(-50%,_8px)_scale(0.88)] [filter:drop-shadow(0_0_0.4px_color-mix(in_srgb,var(--foreground)_22%,transparent))_drop-shadow(0_1px_1px_color-mix(in_srgb,var(--foreground)_10%,transparent))_drop-shadow(0_6px_14px_color-mix(in_srgb,var(--foreground)_12%,transparent))] motion-safe:[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_opacity_110ms_ease-out] motion-reduce:transition-none [&.visible]:[transform:translate(-50%,_0)_scale(1)] [&.visible]:opacity-100"
           class:visible={selectionTooltip.visible}
         >
+          <span
+            class="rounded-full bg-card px-3.5 py-[7px] text-[12px] leading-none text-foreground whitespace-nowrap"
+            >{selectionTooltip.label}</span
+          >
           <svg
-            class="absolute left-1/2 top-[calc(100%-2px)] z-0 h-5 w-11 -translate-x-1/2 overflow-visible"
-            viewBox="0 0 40 20"
-            fill="none"
+            class="-mt-px block h-[9px] w-6 overflow-visible"
+            viewBox="0 0 24 9"
+            fill="var(--card)"
             aria-hidden="true"
           >
             <path
-              d="M0 1C9 1 12 3 15 8C16.5 10.5 17 12.5 17 14C17 17.2 18.2 19 20 19C21.8 19 23 17.2 23 14C23 12.5 23.5 10.5 25 8C28 3 31 1 40 1L40 0H0Z"
-              fill="var(--card)"
+              d="M0 0C7 0 8.4 4.8 10.4 6.4A2.2 2.2 0 0 1 13.6 6.4C15.6 4.8 17 0 24 0Z"
             ></path>
-            <path
-              d="M0 1C9 1 12 3 15 8C16.5 10.5 17 12.5 17 14C17 17.2 18.2 19 20 19C21.8 19 23 17.2 23 14C23 12.5 23.5 10.5 25 8C28 3 31 1 40 1"
-              stroke="var(--border)"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            ></path>
-          </svg><span class="relative z-1">{selectionTooltip.label}</span>
+          </svg>
         </div>
       </div>
       <button
