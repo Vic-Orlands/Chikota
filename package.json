@@ -14,7 +14,7 @@
     "extension:build": "node scripts/package-extension.mjs",
     "linux:build": "node scripts/package-linux-widget.mjs",
     "format": "prettier --write .",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test --experimental-strip-types tests/*.test.mjs"
   },
   "devDependencies": {
     "@internationalized/date": "^3.10.1",

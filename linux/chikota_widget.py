@@ -7,10 +7,12 @@ import json
 import os
 import subprocess
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
+from datetime import datetime, timezone
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -22,6 +24,7 @@ CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / APP
 CONFIG_FILE = CONFIG_DIR / "widget.json"
 CACHE_FILE = CACHE_DIR / "widget-cache.json"
 REFRESH_MS = 5 * 60 * 1000
+RECENT_OPEN_WINDOW_S = 604_800
 MIN_SIZE = (286, 260)
 MAX_SIZE = (920, 900)
 
@@ -49,6 +52,33 @@ def write_private_json(path: Path, value) -> None:
     temporary.write_text(json.dumps(value, indent=2), encoding="utf-8")
     temporary.chmod(0o600)
     temporary.replace(path)
+
+
+def parse_time(value) -> float | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+        return number / 1000 if number > 1e12 else number
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
+def belongs_on_widget(item: dict, now: float | None = None) -> bool:
+    """Keep in sync with src/lib/widget-membership.ts. See docs/widget-membership.md."""
+    current = time.time() if now is None else now
+    if item.get("widgetEnabled") or item.get("isPinned"):
+        return True
+    opened = parse_time(item.get("openedAt"))
+    if opened is not None and 0 <= current - opened <= RECENT_OPEN_WINDOW_S:
+        return True
+    reminder = parse_time(item.get("reminderAt"))
+    return reminder is not None and reminder > current
 
 
 def secret_tool_available() -> bool:
@@ -406,7 +436,7 @@ class ChikotaWidget:
         self.refresh_job = self.root.after(REFRESH_MS, self.refresh)
 
     def visible_items(self) -> list[dict]:
-        items = self.items
+        items = [item for item in self.items if belongs_on_widget(item)]
         if self.filter_mode.get() == "pinned":
             items = [item for item in items if item.get("isPinned")]
         if self.category_id.get():

@@ -5,6 +5,8 @@ import { auth } from '$lib/auth';
 import { and, eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
+// Frozen: live UI does not manage tags. See docs/tags.md.
+
 export const GET = async ({ request }) => {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {

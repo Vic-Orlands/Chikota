@@ -47,6 +47,8 @@ struct WidgetBookmark: Codable, Identifiable, Hashable {
         return reminderAt <= Date()
     }
 
+    /// Shared with web (`belongsOnWidget`) and Linux (`belongs_on_widget`).
+    /// See docs/widget-membership.md.
     var belongsOnWidget: Bool {
         widgetEnabled || isPinned || isRecent || hasActiveReminder
     }

@@ -28,6 +28,11 @@
     type DragTarget
   } from '$lib/drag-select';
   import { domain, safeUrl } from '$lib/links';
+  import {
+    desktopWidgetErrorMessage,
+    desktopWidgetToast,
+    desktopWidgetToggleLabel
+  } from '$lib/widget-membership';
   import type { Bookmark } from '$lib/types';
   import { authClient } from '$lib/auth-client';
   import { toast } from 'svelte-sonner';
@@ -921,13 +926,9 @@
       await bookmarks.updateBookmark(bookmark.id, {
         widgetEnabled: !bookmark.widgetEnabled
       });
-      toast.success(
-        bookmark.widgetEnabled
-          ? 'removed from mac widget'
-          : 'added to mac widget'
-      );
+      toast.success(desktopWidgetToast(Boolean(bookmark.widgetEnabled)));
     } catch {
-      toast.error('could not update the mac widget');
+      toast.error(desktopWidgetErrorMessage);
     }
     closeContext();
   }
@@ -1002,9 +1003,7 @@
         {
           id: 'widget',
           label: () =>
-            bookmark.widgetEnabled
-              ? 'remove from mac widget'
-              : 'add to mac widget',
+            desktopWidgetToggleLabel(Boolean(bookmark.widgetEnabled)),
           shortcut: 'w',
           icon: GuideLauncher,
           visible: () => Boolean(data.session),

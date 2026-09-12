@@ -4,6 +4,8 @@ import { tags } from "$lib/db/schema";
 import { auth } from "$lib/auth";
 import { eq, and } from "drizzle-orm";
 
+// Frozen: live UI does not manage tags. See docs/tags.md.
+
 export const PUT = async ({ request, params }) => {
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) {

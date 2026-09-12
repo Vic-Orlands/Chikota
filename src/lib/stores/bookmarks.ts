@@ -62,11 +62,11 @@ function createBookmarkStore() {
       persist(get(state).filter((b) => b.id !== id));
     },
     deleteBookmarks: async (ids: string[]) => {
-      for (const id of ids) {
-        if (remote)
-          await request(`/api/bookmarks/${encodeURIComponent(id)}`, 'DELETE');
-        persist(get(state).filter((b) => b.id !== id));
-      }
+      const unique = [...new Set(ids.filter(Boolean))];
+      if (!unique.length) return;
+      if (remote) await request('/api/bookmarks', 'DELETE', { ids: unique });
+      const skip = new Set(unique);
+      persist(get(state).filter((b) => !skip.has(b.id)));
     },
     cancelAllReminders: () =>
       persist(get(state).map((b) => ({ ...b, reminderAt: undefined }))),

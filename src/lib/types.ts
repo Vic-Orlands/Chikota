@@ -1,3 +1,4 @@
+/** Stored on bookmarks and via /api/tags; live UI does not edit tags. See docs/tags.md. */
 export interface Tag {
     id: string;
     name: string;
