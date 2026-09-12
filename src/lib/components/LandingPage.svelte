@@ -326,7 +326,7 @@
     font-size: 11px;
     font-weight: 500;
   }
-  .preview-mark img {
+  .preview-mark :global(img) {
     position: absolute;
     inset: 5px;
     width: 18px;
