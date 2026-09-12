@@ -43,8 +43,8 @@
       action: 'try search'
     },
     {
-      title: 'right-click for more.',
-      text: 'right-click any bookmark row for edit, pin, reminder, and reading actions. on touch screens, tap its three-dot button. save your first link to try these actions if your library is empty.',
+      title: 'bookmark actions, close by.',
+      text: 'use a bookmark’s three-dot button for edit, pin, reminder, and reading actions. save your first link to try these actions if your library is empty.',
       selector: '.bookmark-row',
       fallback: '.library-section',
       action: 'show bookmark actions'
@@ -92,10 +92,7 @@
       .querySelector<HTMLElement>('[role="menu"]')
       ?.getBoundingClientRect();
     if (!rect) {
-      position = {
-        left: (window.innerWidth - width) / 2,
-        top: Math.max(12, (window.innerHeight - height) / 2)
-      };
+      position = { left: 0, top: 0 };
       positioned = true;
       return;
     }
@@ -207,7 +204,9 @@
     document
       .querySelectorAll<HTMLButtonElement>('[data-tour][aria-expanded="true"]')
       .forEach((trigger) => trigger.click());
-    document.querySelector<HTMLButtonElement>('.context-backdrop')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.bookmark-context-backdrop')
+      ?.click();
   }
   async function advance(value: number) {
     launching = false;
@@ -235,7 +234,7 @@
 
 {#if open && !suspended}
   <div
-    class="tour-spotlight"
+    class="tour-spotlight fixed [top:0] [left:0] opacity-0 [z-index:49] [border-radius:8px] [border:2px_solid_var(--accent-text)] [box-shadow:0_0_0_200vmax_#0005] pointer-events-none [will-change:opacity] [&.centered]:border-0 [&.positioned]:opacity-0 [&.visible]:opacity-100 motion-safe:[&.positioned]:[transition:opacity_120ms_ease-out] motion-reduce:transition-none motion-reduce:[animation:none]"
     class:centered={!current.selector}
     class:positioned
     class:visible={spotlightVisible}
@@ -246,7 +245,11 @@
   ></div>
   <div
     bind:this={panel}
-    class="tour-card"
+    class={[
+      'tour-card fixed [top:0] [left:0] opacity-0 [z-index:60] [width:min(340px,_calc(100vw_-_24px))] p-0 [border:1px_solid_var(--border)] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] outline-none [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&.positioned]:opacity-100 [&_button:focus-visible]:[outline:2px_solid_var(--accent-text)] [&_button:focus-visible]:[outline-offset:2px] motion-safe:[&.positioned:not(.centered)]:[transition:transform_260ms_cubic-bezier(0.645,_0.045,_0.355,_1),_opacity_180ms_ease-out] motion-safe:[&.centered.positioned.launching]:[transform-origin:center] motion-safe:[&.centered.positioned.launching]:transition-none motion-safe:[&.centered.positioned.launching]:[animation:tour-launch-in_220ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[&.centered.positioned.launching]:[will-change:scale,_opacity] motion-safe:[&.launching_.tour-copy]:[animation:none] motion-reduce:transition-none motion-reduce:[animation:none]',
+      !current.selector &&
+        'top-1/2! left-1/2! -translate-x-1/2 -translate-y-1/2'
+    ]}
     class:centered={!current.selector}
     class:launching
     role="dialog"
@@ -255,7 +258,9 @@
     aria-describedby="tour-description"
     tabindex="-1"
     class:positioned
-    style:transform={`translate3d(${position.left}px, ${position.top}px, 0)`}
+    style:transform={current.selector
+      ? `translate3d(${position.left}px, ${position.top}px, 0)`
+      : undefined}
     onanimationend={(event) => {
       if (event.animationName === 'tour-launch-in') launching = false;
     }}
@@ -267,37 +272,58 @@
     }}
   >
     {#if current.selector}<span
-        class="tour-pointer"
+        class="tour-pointer absolute [width:10px] [height:10px] [background:var(--card)] [transform:rotate(45deg)] [border:1px_solid_var(--border)] [&[data-side=top]]:[top:-6px] [&[data-side=top]]:[left:calc(var(--pointer-offset)_-_5px)] [&[data-side=top]]:[border-right:0] [&[data-side=top]]:[border-bottom:0] [&[data-side=bottom]]:[bottom:-6px] [&[data-side=bottom]]:[left:calc(var(--pointer-offset)_-_5px)] [&[data-side=bottom]]:[border-left:0] [&[data-side=bottom]]:[border-top:0] [&[data-side=left]]:[left:-6px] [&[data-side=left]]:[top:calc(var(--pointer-offset)_-_5px)] [&[data-side=left]]:[border-right:0] [&[data-side=left]]:[border-top:0] [&[data-side=right]]:[right:-6px] [&[data-side=right]]:[top:calc(var(--pointer-offset)_-_5px)] [&[data-side=right]]:[border-left:0] [&[data-side=right]]:[border-bottom:0]"
         data-side={pointer.side}
         style:--pointer-offset={`${pointer.offset}px`}
         aria-hidden="true"
       ></span>{/if}
-    <div class="tour-body">
-      {#key step}<div class="tour-copy">
-          <div class="tour-top">
+    <div
+      class="tour-body [max-height:calc(100dvh_-_26px)] overflow-y-auto [padding:20px]"
+    >
+      {#key step}<div
+          class="tour-copy motion-safe:[animation:tour-copy-in_180ms_ease-out] motion-reduce:transition-none motion-reduce:[animation:none]"
+        >
+          <div
+            class="tour-top flex items-center [gap:8px] justify-between [font-size:10px] [color:var(--muted-foreground)] [margin:-6px_-6px_12px_0]"
+          >
             <span>welcome tour · {step + 1} of {steps.length}</span><button
-              class="icon-button"
+              class="icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
               aria-label="close welcome tour"
               onclick={dismiss}><Cross2 size={14} /></button
             >
           </div>
-          <h2 id="tour-title">{current.title}</h2>
-          <p id="tour-description">{current.text}</p>
+          <h2
+            class="m-0 [font-size:36px] [line-height:1.2] [letter-spacing:normal] font-normal"
+            id="tour-title"
+          >
+            {current.title}
+          </h2>
+          <p
+            class="[margin:10px_0_16px] [font-size:var(--modal-body-font-size)] [line-height:1.8] [color:var(--muted-foreground)]"
+            id="tour-description"
+          >
+            {current.text}
+          </p>
           {#if current.action}<button
-              class="tour-action"
+              class="tour-action flex items-center justify-between w-full [border:1px_solid_var(--border)] [background:var(--sidebar)] [padding:10px] [border-radius:6px] [font-size:var(--modal-body-font-size)] text-left"
               onclick={tryAction}
               disabled={step === 4 && !document.querySelector('.bookmark-row')}
               >{current.action}<ArrowRight size={14} /></button
             >{/if}
         </div>{/key}
-      <div class="tour-footer">
-        <button class="plain-button" onclick={dismiss}>skip tour</button>
+      <div
+        class="tour-footer flex items-center [gap:8px] [&>div]:flex [&>div]:items-center [&>div]:[gap:8px] justify-between [margin-top:22px]"
+      >
+        <button
+          class="plain-button [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
+          onclick={dismiss}>skip tour</button
+        >
         <div>
           {#if step > 0}<button
-              class="secondary-button"
+              class="secondary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
               onclick={() => advance(step - 1)}>back</button
             >{/if}<button
-            class="primary-button"
+            class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
             onclick={() => {
               if (step === steps.length - 1) dismiss();
               else advance(step + 1);
@@ -310,192 +336,3 @@
     </div>
   </div>
 {/if}
-
-<style>
-  .tour-spotlight {
-    position: fixed;
-    top: 0;
-    left: 0;
-    opacity: 0;
-    z-index: 49;
-    border-radius: 8px;
-    border: 2px solid var(--accent-text);
-    box-shadow: 0 0 0 200vmax #0005;
-    pointer-events: none;
-    will-change: opacity;
-  }
-  .tour-spotlight.centered {
-    border: 0;
-  }
-  .tour-card {
-    position: fixed;
-    top: 0;
-    left: 0;
-    opacity: 0;
-    z-index: 60;
-    width: min(340px, calc(100vw - 24px));
-    padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--card);
-    color: var(--foreground);
-    box-shadow: var(--shadow);
-    outline: none;
-    font-family: var(--font-sans);
-    font-size: var(--modal-body-font-size);
-  }
-  .tour-card.centered {
-    top: 50%;
-    left: 50%;
-    transform: translate3d(-50%, -50%, 0) !important;
-  }
-  .tour-body {
-    max-height: calc(100dvh - 26px);
-    overflow-y: auto;
-    padding: 20px;
-  }
-  .positioned {
-    opacity: 1;
-  }
-  .tour-spotlight.positioned {
-    opacity: 0;
-  }
-  .tour-spotlight.visible {
-    opacity: 1;
-  }
-  .tour-pointer {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    background: var(--card);
-    transform: rotate(45deg);
-    border: 1px solid var(--border);
-  }
-  .tour-pointer[data-side='top'] {
-    top: -6px;
-    left: calc(var(--pointer-offset) - 5px);
-    border-right: 0;
-    border-bottom: 0;
-  }
-  .tour-pointer[data-side='bottom'] {
-    bottom: -6px;
-    left: calc(var(--pointer-offset) - 5px);
-    border-left: 0;
-    border-top: 0;
-  }
-  .tour-pointer[data-side='left'] {
-    left: -6px;
-    top: calc(var(--pointer-offset) - 5px);
-    border-right: 0;
-    border-top: 0;
-  }
-  .tour-pointer[data-side='right'] {
-    right: -6px;
-    top: calc(var(--pointer-offset) - 5px);
-    border-left: 0;
-    border-bottom: 0;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .tour-card.positioned {
-      transition:
-        transform 260ms cubic-bezier(0.645, 0.045, 0.355, 1),
-        opacity 180ms ease-out;
-    }
-    .tour-card.positioned.launching {
-      transform-origin: center;
-      transition: none;
-      animation: tour-launch-in 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
-      will-change: scale, opacity, border-radius;
-    }
-    .tour-card.launching .tour-copy {
-      animation: none;
-    }
-    .tour-spotlight.positioned {
-      transition: opacity 120ms ease-out;
-    }
-    .tour-copy {
-      animation: tour-copy-in 180ms ease-out;
-    }
-  }
-  @keyframes tour-copy-in {
-    from {
-      opacity: 0;
-      transform: translateY(5px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes tour-launch-in {
-    0% {
-      opacity: 0;
-      scale: 0.04;
-      border-radius: 999px;
-    }
-    35% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 1;
-      scale: 1;
-      border-radius: 8px;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .tour-card,
-    .tour-spotlight,
-    .tour-copy {
-      transition: none;
-      animation: none;
-    }
-  }
-  .tour-top,
-  .tour-footer,
-  .tour-footer > div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .tour-top,
-  .tour-footer {
-    justify-content: space-between;
-  }
-  .tour-top {
-    font-size: 10px;
-    color: var(--muted-foreground);
-    margin: -6px -6px 12px 0;
-  }
-  h2 {
-    margin: 0;
-    font-size: 36px;
-    line-height: 1.2;
-    letter-spacing: normal;
-    font-weight: 400;
-  }
-  p {
-    margin: 10px 0 16px;
-    font-size: var(--modal-body-font-size);
-    line-height: 1.8;
-    color: var(--muted-foreground);
-  }
-  .tour-action {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    border: 1px solid var(--border);
-    background: var(--sidebar);
-    padding: 10px;
-    border-radius: 6px;
-    font-size: var(--modal-body-font-size);
-    text-align: left;
-  }
-  .tour-footer {
-    margin-top: 22px;
-  }
-  button:focus-visible {
-    outline: 2px solid var(--accent-text);
-    outline-offset: 2px;
-  }
-</style>

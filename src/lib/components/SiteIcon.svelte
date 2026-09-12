@@ -19,12 +19,18 @@
         ]
       : []
   );
-  const src = $derived(sources.find((source) => !failedSources.includes(source)));
+  const src = $derived(
+    sources.find((source) => !failedSources.includes(source))
+  );
 </script>
 
-<span class="site-icon" style:--icon-size="{size}px">
+<span
+  class="site-icon grid place-items-center w-full h-full rounded-full [background:color-mix(in_srgb,_var(--foreground)_6%,_var(--card))] [color:var(--muted-foreground)] [line-height:1] overflow-hidden"
+  style:--icon-size="{size}px"
+>
   {#if src}
     <img
+      class="block [width:var(--icon-size,_18px)] [height:var(--icon-size,_18px)] object-contain"
       {src}
       alt=""
       width={size}
@@ -37,23 +43,3 @@
     <Globe {size} />
   {/if}
 </span>
-
-<style>
-  .site-icon {
-    display: grid;
-    place-items: center;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--foreground) 6%, var(--card));
-    color: var(--muted-foreground);
-    line-height: 1;
-    overflow: hidden;
-  }
-  img {
-    display: block;
-    width: var(--icon-size, 18px);
-    height: var(--icon-size, 18px);
-    object-fit: contain;
-  }
-</style>

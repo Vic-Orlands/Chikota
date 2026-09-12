@@ -1,15 +1,35 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Ruthie&display=swap" rel="stylesheet">
-		<script>try{const t=localStorage.getItem('chikota-theme');const theme=t==='forest'||t==='ember'?t:t==='dark'?'forest':'light';document.documentElement.dataset.theme=theme;document.documentElement.classList.toggle('dark',theme!=='light');document.documentElement.style.colorScheme=theme==='light'?'light':'dark';}catch{}</script>
-		%sveltekit.head%
-	</head>
-	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">%sveltekit.body%</div>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Ruthie&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      try {
+        const t = localStorage.getItem('chikota-theme');
+        const theme =
+          t === 'forest' || t === 'ember'
+            ? t
+            : t === 'dark'
+              ? 'forest'
+              : 'light';
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.toggle('dark', theme !== 'light');
+        document.documentElement.style.colorScheme =
+          theme === 'light' ? 'light' : 'dark';
+      } catch {}
+    </script>
+    %sveltekit.head%
+  </head>
+  <body
+    class="m-0 bg-background text-foreground font-sans text-[var(--body-font-size)] lowercase antialiased [font-optical-sizing:auto] [font-variation-settings:'wdth'_100] [:where(&_*)]:[box-sizing:border-box] [:where(&_*)]:[scrollbar-width:none] [:where(&_*::-webkit-scrollbar)]:hidden [background:var(--background)] [color:var(--foreground)] [font-family:'IBM_Plex_Sans',_-apple-system,_BlinkMacSystemFont,_'Segoe_UI',_sans-serif] [font-size:var(--body-font-size)] [-webkit-font-smoothing:antialiased] [:where(&_h1)]:[font-family:var(--font-heading)] [:where(&_h1)]:font-normal [:where(&_h1)]:not-italic [:where(&_h1)]:[letter-spacing:normal] [:where(&_h2)]:[font-family:var(--font-heading)] [:where(&_h2)]:font-normal [:where(&_h2)]:not-italic [:where(&_h2)]:[letter-spacing:normal] [:where(&_h3)]:[font-family:var(--font-heading)] [:where(&_h3)]:font-normal [:where(&_h3)]:not-italic [:where(&_h3)]:[letter-spacing:normal] [:where(&_h4)]:[font-family:var(--font-heading)] [:where(&_h4)]:font-normal [:where(&_h4)]:not-italic [:where(&_h4)]:[letter-spacing:normal] [:where(&_h5)]:[font-family:var(--font-heading)] [:where(&_h5)]:font-normal [:where(&_h5)]:not-italic [:where(&_h5)]:[letter-spacing:normal] [:where(&_h6)]:[font-family:var(--font-heading)] [:where(&_h6)]:font-normal [:where(&_h6)]:not-italic [:where(&_h6)]:[letter-spacing:normal] [:where(&_[data-slot=dialog-title])]:[font-family:var(--font-heading)] [:where(&_[data-slot=dialog-title])]:font-normal [:where(&_[data-slot=dialog-title])]:not-italic [:where(&_[data-slot=dialog-title])]:[letter-spacing:normal] [:where(&_[data-slot=card-title])]:[font-family:var(--font-heading)] [:where(&_[data-slot=card-title])]:font-normal [:where(&_[data-slot=card-title])]:not-italic [:where(&_[data-slot=card-title])]:[letter-spacing:normal] [:where(&_button)]:font-[inherit] [:where(&_input)]:font-[inherit] [:where(&_textarea)]:font-[inherit] [:where(&_select)]:font-[inherit] [:where(&_button)]:[-webkit-tap-highlight-color:transparent] [:where(&_a)]:[-webkit-tap-highlight-color:transparent] [:where(&_input)]:[-webkit-tap-highlight-color:transparent] [:where(&_select)]:[-webkit-tap-highlight-color:transparent] [:where(&_textarea)]:[-webkit-tap-highlight-color:transparent] [:where(&_button)]:cursor-pointer [:where(&_button:disabled)]:cursor-wait [:where(&_button:disabled)]:[opacity:0.5] [:where(&_a)]:text-inherit [:where(&_a)]:no-underline [:where(&_button)]:text-inherit [:where(&_a:focus-visible)]:[outline:2px_solid_var(--accent-text)] [:where(&_a:focus-visible)]:[outline-offset:4px] [:where(&_input:focus-visible)]:[outline:2px_solid_var(--accent-text)] [:where(&_input:focus-visible)]:[outline-offset:4px] [:where(&_select:focus-visible)]:[outline:2px_solid_var(--accent-text)] [:where(&_select:focus-visible)]:[outline-offset:4px] [:where(&_textarea:focus-visible)]:[outline:2px_solid_var(--accent-text)] [:where(&_textarea:focus-visible)]:[outline-offset:4px] [:where(&_button:focus-visible)]:outline-0 selection:[background:var(--accent-soft)] selection:[color:var(--accent-text)] [:where(&_svg)]:shrink-0 [:where(&_svg)]:[scale:1.08] [:where(&_svg)]:[transform-origin:center] [overflow-x:clip] [:where(&_h2)]:[font-size:25px] [:where(&_h2)]:m-0 [:where(&_[data-slot=dialog-content])]:[font-family:var(--font-sans)] [:where(&_[data-slot=dialog-content])]:[font-size:var(--modal-body-font-size)] [:where(&_[data-slot=dialog-content]_:where(p,_label,_input,_textarea,_select,_button))]:[font-size:var(--modal-body-font-size)!important] [:where(&_[data-slot=dialog-content]_:where(h1,_h2,_h3,_h4,_h5,_h6,_[data-slot=dialog-title])_:where(span,_small,_strong))]:[font-size:inherit!important] [:where(&_form_label)]:flex [:where(&_form_label)]:flex-wrap [:where(&_form_label)]:[gap:7px] [:where(&_form_label)]:items-center [:where(&_form_label)]:[font-size:var(--modal-body-font-size)] [:where(&_form_label)]:font-medium [:where(&_form_label)]:[margin-bottom:17px] [:where(&_form_label>span)]:font-normal [:where(&_form_label>span)]:[color:var(--muted-foreground)] [:where(&_form_label>span)]:[font-size:var(--secondary-text-font-size)] [:where(&_form_input)]:w-full [:where(&_form_input)]:[border:1px_solid_var(--border)] [:where(&_form_input)]:[border-radius:7px] [:where(&_form_input)]:[padding:11px_12px] [:where(&_form_input)]:[font-size:var(--modal-body-font-size)] [:where(&_form_input)]:[background:var(--background)] [:where(&_form_input)]:[color:var(--foreground)] [:where(&_form_input)]:font-normal [:where(&_form_textarea)]:w-full [:where(&_form_textarea)]:[border:1px_solid_var(--border)] [:where(&_form_textarea)]:[border-radius:7px] [:where(&_form_textarea)]:[padding:11px_12px] [:where(&_form_textarea)]:[font-size:var(--modal-body-font-size)] [:where(&_form_textarea)]:[background:var(--background)] [:where(&_form_textarea)]:[color:var(--foreground)] [:where(&_form_textarea)]:font-normal [:where(&_form_select)]:w-full [:where(&_form_select)]:[border:1px_solid_var(--border)] [:where(&_form_select)]:[border-radius:7px] [:where(&_form_select)]:[padding:11px_12px] [:where(&_form_select)]:[font-size:var(--modal-body-font-size)] [:where(&_form_select)]:[background:var(--background)] [:where(&_form_select)]:[color:var(--foreground)] [:where(&_form_select)]:font-normal [:where(&_form_textarea)]:[resize:vertical] [:where(&_form_textarea)]:[min-height:70px] [:where(&_form_input::placeholder)]:[color:var(--muted-foreground)] [:where(&_form_textarea::placeholder)]:[color:var(--muted-foreground)] [:where(&_[data-preview=forest])]:[background:#0c1510] [:where(&_[data-preview=forest])]:[border-color:#26352b] [:where(&_[data-preview=ember])]:[background:#17120f] [:where(&_[data-preview=ember])]:[border-color:#3b2d23] motion-safe:[:where(&_button)]:[transition:transform_120ms_ease] motion-safe:[:where(&_button:active)]:[transform:scale(0.97)] motion-reduce:[:where(&_button)]:transition-none"
+    data-sveltekit-preload-data="hover"
+  >
+    <div class="contents">%sveltekit.body%</div>
+  </body>
 </html>

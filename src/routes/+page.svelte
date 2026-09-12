@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { flip } from 'svelte/animate';
+  import { fly } from 'svelte/transition';
   import { DropdownMenu } from 'bits-ui';
   import { replaceState } from '$app/navigation';
   import { bookmarks } from '$lib/stores/bookmarks';
@@ -27,8 +29,8 @@
   import DateGroupOpen from '$lib/components/icons/DateGroupOpen.svelte';
   import EllipsisVertical from '$lib/components/icons/EllipsisVertical.svelte';
   import GuestUser from '$lib/components/icons/GuestUser.svelte';
-  import GuideLauncher from '$lib/components/icons/GuideLauncher.svelte';
-  import KeyboardDown from '$lib/components/icons/KeyboardDown.svelte';
+  import CommandKey from '$lib/components/icons/CommandKey.svelte';
+  import GuideCompass from '$lib/components/icons/GuideCompass.svelte';
   import MacWidgetLauncher from '$lib/components/icons/MacWidgetLauncher.svelte';
   import UbuntuWidgetLauncher from '$lib/components/icons/UbuntuWidgetLauncher.svelte';
   import ReminderDone from '$lib/components/icons/ReminderDone.svelte';
@@ -70,6 +72,12 @@
   };
   type SettingsTab = 'appearance' | 'reminders' | 'about';
   type DesktopPlatform = 'mac' | 'linux' | null;
+  type DateDeckItem = {
+    key: string;
+    label: string;
+    dates: string[];
+    kind: 'day' | 'month' | 'year';
+  };
 
   let { data } = $props();
   let guestView = $state<'pending' | 'landing' | 'library'>('pending');
@@ -98,6 +106,9 @@
   let saving = $state(false);
   let selected = $state<string[]>([]);
   let selectedCollections = $state<string[]>([]);
+  let selectionTooltip = $state({ label: '', x: 0, visible: false });
+  let selectionTooltipFrame: number | undefined;
+  let selectionTooltipResetTimer: number | undefined;
   let listToolsOpen = $state(false);
   let listToolsTrigger = $state<HTMLButtonElement>();
   let selectionPinned = $derived(
@@ -184,6 +195,12 @@
   let collectionsOpen = $state(true);
   let pinnedOpen = $state(true);
   let collapsedGroups = $state<string[]>([]);
+  let stickyLibraryHeader = $state<HTMLElement>();
+  let dateDeck = $state<DateDeckItem[]>([]);
+  let dateDeckFrame: number | undefined;
+  let dateDeckObserver: IntersectionObserver | undefined;
+  let crossedDateKeys = new Set<string>();
+  let reduceMotion = $state(false);
   let groups = $derived.by(() => {
     const grouped = new Map<string, Bookmark[]>();
     for (const bookmark of visible) {
@@ -194,13 +211,123 @@
       });
       grouped.set(date, [...(grouped.get(date) || []), bookmark]);
     }
-    return Array.from(grouped, ([date, items]) => ({ date, items }));
+    return Array.from(grouped, ([date, items]) => {
+      const value = items[0].createdAt;
+      const year = String(value.getFullYear());
+      const month = value.toLocaleDateString('en-GB', { month: 'short' });
+      return {
+        date,
+        items,
+        month,
+        year,
+        monthKey: `${year}-${String(value.getMonth() + 1).padStart(2, '0')}`
+      };
+    });
   });
   function toggleGroup(date: string) {
     collapsedGroups = collapsedGroups.includes(date)
       ? collapsedGroups.filter((value) => value !== date)
       : [...collapsedGroups, date];
   }
+  function compactDateDeck(crossedDates: string[]) {
+    const crossed = crossedDates
+      .map((date) => groups.find((group) => group.date === date))
+      .filter((group) => group !== undefined);
+    const active = crossed[crossed.length - 1];
+    if (!active) return [];
+    const compacted = new Map<string, DateDeckItem>();
+    for (const group of crossed) {
+      const kind =
+        group.year !== active.year
+          ? 'year'
+          : group.monthKey !== active.monthKey
+            ? 'month'
+            : 'day';
+      const key =
+        kind === 'year'
+          ? `year-${group.year}`
+          : kind === 'month'
+            ? `month-${group.monthKey}`
+            : `day-${group.date}`;
+      const existing = compacted.get(key);
+      if (existing) {
+        existing.dates.push(group.date);
+        continue;
+      }
+      compacted.set(key, {
+        key,
+        kind,
+        label:
+          kind === 'year'
+            ? group.year
+            : kind === 'month'
+              ? `${group.month} ${group.year}`
+              : group.date,
+        dates: [group.date]
+      });
+    }
+    return [...compacted.values()];
+  }
+  function refreshDateDeck() {
+    const crossedDates = groups
+      .map((group) => group.date)
+      .filter((date) => crossedDateKeys.has(date));
+    const next = compactDateDeck(crossedDates);
+    const currentSignature = dateDeck
+      .map((item) => `${item.key}:${item.dates.join(',')}`)
+      .join('|');
+    const nextSignature = next
+      .map((item) => `${item.key}:${item.dates.join(',')}`)
+      .join('|');
+    if (currentSignature !== nextSignature) dateDeck = next;
+  }
+  function connectDateDeckObserver() {
+    dateDeckFrame = undefined;
+    dateDeckObserver?.disconnect();
+    crossedDateKeys = new Set();
+    dateDeck = [];
+    if (!stickyLibraryHeader || view !== 'library') return;
+    const boundary = Math.ceil(
+      stickyLibraryHeader.getBoundingClientRect().bottom
+    );
+    dateDeckObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const date = (entry.target as HTMLElement).dataset.dateKey;
+          if (!date) continue;
+          if (entry.boundingClientRect.top <= boundary)
+            crossedDateKeys.add(date);
+          else crossedDateKeys.delete(date);
+        }
+        refreshDateDeck();
+      },
+      { rootMargin: `-${boundary}px 0px 0px 0px`, threshold: 0 }
+    );
+    document
+      .querySelectorAll<HTMLElement>('.date-group[data-date-key]')
+      .forEach((element) => dateDeckObserver?.observe(element));
+  }
+  function scheduleDateDeckObserver() {
+    if (dateDeckFrame) return;
+    dateDeckFrame = window.requestAnimationFrame(connectDateDeckObserver);
+  }
+  function toggleDateDeckItem(item: DateDeckItem) {
+    const shouldCollapse = item.dates.some(
+      (date) => !collapsedGroups.includes(date)
+    );
+    collapsedGroups = shouldCollapse
+      ? [...new Set([...collapsedGroups, ...item.dates])]
+      : collapsedGroups.filter((date) => !item.dates.includes(date));
+  }
+  $effect(() => {
+    groups.map((group) => group.date).join('|');
+    collectionsOpen;
+    if (view !== 'library') {
+      dateDeck = [];
+      return;
+    }
+    void tick().then(scheduleDateDeckObserver);
+  });
   const themes: { id: Theme; name: string; description: string }[] = [
     { id: 'light', name: 'paper', description: 'white & graphite' },
     { id: 'forest', name: 'forest', description: 'pine & soft silver' },
@@ -274,6 +401,15 @@
             : $categories.find((c) => c.id === section)?.name || 'collection'
   );
   onMount(() => {
+    const motionPreference = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    );
+    const syncMotionPreference = () => {
+      reduceMotion = motionPreference.matches;
+    };
+    syncMotionPreference();
+    motionPreference.addEventListener('change', syncMotionPreference);
+    window.addEventListener('resize', scheduleDateDeckObserver);
     const navigatorWithPlatform = navigator as Navigator & {
       userAgentData?: { platform?: string };
     };
@@ -353,9 +489,17 @@
     return () => {
       window.clearInterval(reminderTimer);
       window.removeEventListener('storage', refresh);
+      window.removeEventListener('resize', scheduleDateDeckObserver);
+      motionPreference.removeEventListener('change', syncMotionPreference);
       for (const timer of Object.values(copyResetTimers))
         window.clearTimeout(timer);
       if (platformCalloutTimer) window.clearTimeout(platformCalloutTimer);
+      if (selectionTooltipFrame)
+        window.cancelAnimationFrame(selectionTooltipFrame);
+      if (selectionTooltipResetTimer)
+        window.clearTimeout(selectionTooltipResetTimer);
+      if (dateDeckFrame) window.cancelAnimationFrame(dateDeckFrame);
+      dateDeckObserver?.disconnect();
     };
   });
   async function initialize() {
@@ -424,6 +568,48 @@
     selectMode = false;
     bookmarkSelectionAnchor = null;
     collectionSelectionAnchor = null;
+  }
+  function showSelectionTooltip(event: MouseEvent | FocusEvent, label: string) {
+    const button = event.currentTarget as HTMLButtonElement;
+    const toolbar = button.closest<HTMLElement>('.bookmark-selection-toolbar');
+    if (!toolbar) return;
+    const buttonRect = button.getBoundingClientRect();
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const nextTooltip = {
+      label,
+      x: buttonRect.left - toolbarRect.left + buttonRect.width / 2,
+      visible: true
+    };
+    if (selectionTooltipResetTimer)
+      window.clearTimeout(selectionTooltipResetTimer);
+    if (selectionTooltip.visible) {
+      selectionTooltip = nextTooltip;
+      return;
+    }
+    if (selectionTooltipFrame)
+      window.cancelAnimationFrame(selectionTooltipFrame);
+    selectionTooltip = { ...nextTooltip, visible: false };
+    selectionTooltipFrame = window.requestAnimationFrame(() => {
+      selectionTooltip = nextTooltip;
+      selectionTooltipFrame = undefined;
+    });
+  }
+  function hideSelectionTooltip(event?: FocusEvent) {
+    const toolbar = event?.currentTarget as HTMLElement | undefined;
+    if (
+      toolbar &&
+      event?.relatedTarget instanceof Node &&
+      toolbar.contains(event.relatedTarget)
+    )
+      return;
+    if (selectionTooltipFrame)
+      window.cancelAnimationFrame(selectionTooltipFrame);
+    selectionTooltip = { ...selectionTooltip, visible: false };
+    selectionTooltipResetTimer = window.setTimeout(() => {
+      if (!selectionTooltip.visible)
+        selectionTooltip = { label: '', x: 0, visible: false };
+      selectionTooltipResetTimer = undefined;
+    }, 160);
   }
   async function openModal(
     value: NonNullable<typeof modal>,
@@ -1140,7 +1326,7 @@
     }
     closeContext();
   }
-  async function showContext(event: MouseEvent, bookmark?: Bookmark) {
+  async function showContext(event: MouseEvent, bookmark: Bookmark) {
     if (
       (event.target as HTMLElement).closest(
         'input,textarea,dialog,[role="dialog"]'
@@ -1184,7 +1370,7 @@
       buttons[next]?.focus();
     }
     if (event.key === 'Tab') closeContext();
-    if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+    if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
       const shortcut = event.key.toLowerCase();
       const target = contextPanel?.querySelector<HTMLButtonElement>(
         `button[data-shortcut="${shortcut}"]`
@@ -1275,7 +1461,10 @@
       bookmarkSelectionAnchor = null;
       collectionSelectionAnchor = null;
     }
-    if (event.key === 'n') void openModal('bookmark');
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+      event.preventDefault();
+      void openModal('bookmark');
+    }
     if ((event.metaKey || event.ctrlKey) && event.key === 'a') {
       event.preventDefault();
       selected = visible.map((b) => b.id);
@@ -1361,10 +1550,6 @@
 >
 <svelte:window
   onkeydown={keyboard}
-  oncontextmenu={(event) => {
-    if (view !== 'library') return;
-    showContext(event);
-  }}
   onpointerdown={(event) => {
     if (view !== 'library') return;
     closeListToolsOutside(event);
@@ -1379,192 +1564,262 @@
 />
 
 {#if view === 'pending'}
-  <p class="sr-only">loading chikota</p>
+  <p
+    class="sr-only absolute [width:1px] [height:1px] p-0 [margin:-1px] overflow-hidden [clip:rect(0,_0,_0,_0)] whitespace-nowrap border-0"
+  >
+    loading chikota
+  </p>
 {:else if view === 'landing'}
   <LandingPage onenter={enterLibrary} />
 {:else if view === 'library'}
-  <div class="reading-column">
-    <header class="reading-header">
-      <a class="wordmark" href="/" aria-label="chikota home"><h1>chikota</h1></a
-      >
-      <div class="header-actions">
-        <button
-          data-tour="search"
-          bind:this={commandTrigger}
-          class="icon-button search-trigger"
-          aria-label="search bookmarks"
-          title="search bookmarks"
-          onclick={() => openModal('command')}><SearchGrid /></button
-        >
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            data-tour="account"
-            class={[
-              'icon-button notification-trigger',
-              data.session
-                ? 'h-auto! w-auto! rounded-none! bg-transparent! hover:bg-transparent!'
-                : 'size-7.5! rounded-[5px]! bg-secondary! text-foreground! hover:bg-secondary!'
-            ]}
-            aria-label="account menu"
-            title="account menu"
-            >{#if data.session}{#if data.session.user.image}<img
-                  class="account-avatar"
-                  src={data.session.user.image}
-                  alt=""
-                />{:else}<div class="account-avatar account-avatar-fallback">
-                  {data.session.user.name?.slice(0, 1).toUpperCase() || 'U'}
-                </div>{/if}{:else}<GuestUser
-              />{/if}{#if upcomingReminderCount}<span
-                >{upcomingReminderCount}</span
-              >{/if}</DropdownMenu.Trigger
-          >
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              class="list-options-menu"
-              align="end"
-              sideOffset={8}
-            >
-              <DropdownMenu.Item
-                class="list-options-item"
-                onSelect={() => openModal('settings')}
-                ><ActionSettings size={14} />settings</DropdownMenu.Item
-              >
-              <DropdownMenu.Item
-                class="list-options-item"
-                onSelect={openRemindersPanel}
-                ><ActionBell size={14} />reminders{#if upcomingReminderCount}
-                  · {upcomingReminderCount}{/if}</DropdownMenu.Item
-              >
-              <DropdownMenu.Item
-                class="list-options-item"
-                onSelect={() => void openExtensionPanel()}
-                ><BrowserExtension size={14} />browser extension</DropdownMenu.Item
-              >
-              {#if data.session}<DropdownMenu.Item
-                  class="list-options-item"
-                  onSelect={async () => {
-                    await authClient.signOut();
-                    location.reload();
-                  }}><LogOut size={14} />sign out</DropdownMenu.Item
-                >{:else}<DropdownMenu.Item
-                  class="list-options-item"
-                  onSelect={() =>
-                    authClient.signIn.social({ provider: 'google' })}
-                  ><GuestUser size={14} />sign in</DropdownMenu.Item
-                >{/if}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-        <button
-          class="icon-button guide-launcher"
-          aria-label="start welcome guide"
-          title="welcome guide"
-          onclick={() => (guideOpen = true)}><GuideLauncher /></button
-        >
-      </div>
-    </header>
+  <div
+    class="reading-column [width:min(var(--reading-max),_calc(100%_-_40px))] [max-width:var(--reading-max)] [margin:0_auto] [min-height:100dvh] min-w-0 [border-inline:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] [&>main]:min-w-0 [&>main]:max-w-full max-[760px]:[width:calc(100%_-_28px)] max-[520px]:[width:calc(100%_-_20px)]"
+  >
     <main>
-      <section
-        data-tour="collections"
-        class="collection-section ruled-section"
-        aria-labelledby="collections-heading"
+      <div
+        bind:this={stickyLibraryHeader}
+        class="sticky top-0 z-20 bg-background [box-shadow:0_1px_0_color-mix(in_srgb,_var(--border)_58%,_transparent)]"
       >
-        <div class="section-toolbar py-2!">
-          <button
-            class="section-toggle"
-            aria-expanded={collectionsOpen}
-            aria-controls="collection-content"
-            onclick={() => (collectionsOpen = !collectionsOpen)}
-            >{#if $categories.filter((c) => c.id !== 'all').length}<FileTrayStacked
-                size={14}
-              />{:else}<FileTray size={14} />{/if}
-            <h2 id="collections-heading">collections</h2>
-            <span class="count"
-              >{$categories.filter((c) => c.id !== 'all').length}</span
-            ><ChevronDown
-              size={14}
-              class={collectionsOpen ? 'chevron expanded' : 'chevron'}
-            /></button
-          >
-          <button class="plain-button" onclick={() => openModal('collection')}
-            ><Plus size={15} /></button
-          >
-        </div>
-        <div
-          id="collection-content"
-          class="collapse-grid"
-          class:open={collectionsOpen}
-          inert={!collectionsOpen ? true : undefined}
-          aria-hidden={!collectionsOpen}
+        <header
+          class="reading-header relative grid [grid-template-columns:1fr_auto] items-center [gap:18px] [padding:18px_10px] [min-height:72px] max-[760px]:[padding:24px_12px] max-[760px]:[gap:10px] max-[520px]:[grid-template-columns:1fr_1fr] max-[520px]:[gap:12px] max-[520px]:[padding:16px_10px_7px]"
         >
-          <div class="collapse-inner">
-            {#if $categories.filter((c) => c.id !== 'all').length}
-              <div class="collection-grid">
-                {#each $categories.filter((c) => c.id !== 'all') as c}<div
-                    class="collection-card"
-                    class:active={section === c.id}
-                    class:selected={selectedCollections.includes(c.id)}
-                  >
-                    <button
-                      class="collection-main"
-                      aria-pressed={selectedCollections.includes(c.id)}
-                      onclick={(event) => {
-                        if (selectCollectionRange(event, c.id)) return;
-                        navigate(section === c.id ? 'all' : c.id);
-                      }}
-                      ><span
-                        ><strong>{c.name}</strong><small
-                          >{$bookmarks.filter((b) => b.categoryId === c.id)
-                            .length}
-                          links</small
-                        ></span
-                      ></button
-                    ><button
-                      class="collection-menu icon-button"
-                      aria-label={`edit ${c.name}`}
-                      onclick={() => editCollection(c.id)}
-                      ><MoreVertical size={15} /></button
+          <a
+            class="wordmark flex items-center [gap:10px] [width:fit-content] [&_h1]:[font-size:32px] [&_h1]:font-normal [&_h1]:[letter-spacing:normal] [&_h1]:m-0 [&_svg]:[color:var(--foreground)] max-[520px]:[&_h1]:[font-size:30px]"
+            href="/"
+            aria-label="chikota home"><h1>chikota</h1></a
+          >
+          <div
+            class="header-actions relative flex items-center justify-end [gap:var(--icon-icon-gap)] [&_.icon-button:focus-visible]:[outline:2px_solid_var(--accent-text)] [&_.icon-button:focus-visible]:[outline-offset:2px] max-[520px]:[grid-column:2] max-[520px]:[grid-row:1]"
+          >
+            <button
+              data-tour="search"
+              bind:this={commandTrigger}
+              class="icon-button search-trigger inline-flex h-7.5 w-auto! items-center justify-center [gap:5px] border-0 bg-transparent! px-1.5 [color:var(--muted-foreground)] [border-radius:5px] [&_kbd]:[font-family:var(--font-sans)] [&_kbd]:[font-size:10px] [&_kbd]:[line-height:1] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] motion-safe:[transition:background-color_140ms_ease]"
+              aria-label="search bookmarks, cmd+k"
+              title="search bookmarks"
+              onclick={() => openModal('command')}><SearchGrid /></button
+            >
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger
+                data-tour="account"
+                class={[
+                  'icon-button notification-trigger inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] relative [&>span]:absolute [&>span]:[top:-3px] [&>span]:[right:-3px] [&>span]:[min-width:14px] [&>span]:[height:14px] [&>span]:grid [&>span]:place-items-center [&>span]:[padding:0_3px] [&>span]:[border-radius:7px] [&>span]:[background:var(--primary)] [&>span]:[color:var(--primary-foreground)] [&>span]:[font-size:8px] [&>span]:[font-variant-numeric:tabular-nums] motion-safe:[transition:background-color_140ms_ease]',
+                  data.session
+                    ? 'h-auto! w-auto! rounded-none! bg-transparent! hover:bg-transparent!'
+                    : 'size-7.5! rounded-[5px]! bg-secondary! text-foreground! hover:bg-secondary!'
+                ]}
+                aria-label="account menu"
+                title="account menu"
+                >{#if data.session}{#if data.session.user.image}<img
+                      class="account-avatar block [width:22px] [height:22px] rounded-full [object-fit:cover]"
+                      src={data.session.user.image}
+                      alt=""
+                    />{:else}<div
+                      class="account-avatar account-avatar-fallback block [width:22px] [height:22px] rounded-full [object-fit:cover] grid place-items-center [background:var(--secondary)] [font-size:10px] [font-weight:600]"
                     >
-                  </div>{/each}
-              </div>
-            {:else}<div class="section-empty collection-empty">
-                <EmptyMono />
-                <FileTray size={18} class="text-muted-foreground" />
-                <strong>no collections yet.</strong>
-                <p>group bookmarks by creating a collection.</p>
-              </div>{/if}
+                      {data.session.user.name?.slice(0, 1).toUpperCase() || 'U'}
+                    </div>{/if}{:else}<GuestUser
+                  />{/if}{#if upcomingReminderCount}<span
+                    >{upcomingReminderCount}</span
+                  >{/if}</DropdownMenu.Trigger
+              >
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  class="list-options-menu [z-index:51] [min-width:160px] [padding:3px] [border:1px_solid_var(--border)] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] [transform-origin:var(--bits-floating-transform-origin)] [will-change:transform,_opacity] [&[data-state=open]]:[animation:account-menu-in_180ms_cubic-bezier(0.22,_1,_0.36,_1)_both] [&[data-state=closed]]:[animation:account-menu-out_120ms_ease-out_both] motion-reduce:[&[data-state]]:[animation:none]"
+                  align="end"
+                  sideOffset={8}
+                >
+                  <DropdownMenu.Item
+                    class="list-options-item flex items-center [gap:var(--icon-text-gap)] [min-height:30px] [padding:5px_8px] [border-radius:4px] [font-size:var(--body-font-size)] cursor-pointer outline-none [&[data-highlighted]]:[background:var(--secondary)] [&[data-state=checked]]:[background:var(--secondary)] [&[data-disabled]]:[opacity:0.5] [&[data-disabled]]:[cursor:default]"
+                    onSelect={() => openModal('settings')}
+                    ><ActionSettings size={14} />settings</DropdownMenu.Item
+                  >
+                  <DropdownMenu.Item
+                    class="list-options-item flex items-center [gap:var(--icon-text-gap)] [min-height:30px] [padding:5px_8px] [border-radius:4px] [font-size:var(--body-font-size)] cursor-pointer outline-none [&[data-highlighted]]:[background:var(--secondary)] [&[data-state=checked]]:[background:var(--secondary)] [&[data-disabled]]:[opacity:0.5] [&[data-disabled]]:[cursor:default]"
+                    onSelect={openRemindersPanel}
+                    ><ActionBell
+                      size={14}
+                    />reminders{#if upcomingReminderCount}
+                      · {upcomingReminderCount}{/if}</DropdownMenu.Item
+                  >
+                  <DropdownMenu.Item
+                    class="list-options-item flex items-center [gap:var(--icon-text-gap)] [min-height:30px] [padding:5px_8px] [border-radius:4px] [font-size:var(--body-font-size)] cursor-pointer outline-none [&[data-highlighted]]:[background:var(--secondary)] [&[data-state=checked]]:[background:var(--secondary)] [&[data-disabled]]:[opacity:0.5] [&[data-disabled]]:[cursor:default]"
+                    onSelect={() => void openExtensionPanel()}
+                    ><BrowserExtension size={14} />browser extension</DropdownMenu.Item
+                  >
+                  <DropdownMenu.Item
+                    class="list-options-item flex items-center [gap:var(--icon-text-gap)] [min-height:30px] [padding:5px_8px] [border-radius:4px] [font-size:var(--body-font-size)] cursor-pointer outline-none [&[data-highlighted]]:[background:var(--secondary)] [&[data-state=checked]]:[background:var(--secondary)] [&[data-disabled]]:[opacity:0.5] [&[data-disabled]]:[cursor:default]"
+                    onSelect={() => (guideOpen = true)}
+                    ><GuideCompass size={14} />welcome guide</DropdownMenu.Item
+                  >
+                  {#if data.session}<DropdownMenu.Item
+                      class="list-options-item flex items-center [gap:var(--icon-text-gap)] [min-height:30px] [padding:5px_8px] [border-radius:4px] [font-size:var(--body-font-size)] cursor-pointer outline-none [&[data-highlighted]]:[background:var(--secondary)] [&[data-state=checked]]:[background:var(--secondary)] [&[data-disabled]]:[opacity:0.5] [&[data-disabled]]:[cursor:default]"
+                      onSelect={async () => {
+                        await authClient.signOut();
+                        location.reload();
+                      }}><LogOut size={14} />sign out</DropdownMenu.Item
+                    >{:else}<DropdownMenu.Item
+                      class="list-options-item flex items-center [gap:var(--icon-text-gap)] [min-height:30px] [padding:5px_8px] [border-radius:4px] [font-size:var(--body-font-size)] cursor-pointer outline-none [&[data-highlighted]]:[background:var(--secondary)] [&[data-state=checked]]:[background:var(--secondary)] [&[data-disabled]]:[opacity:0.5] [&[data-disabled]]:[cursor:default]"
+                      onSelect={() =>
+                        authClient.signIn.social({ provider: 'google' })}
+                      ><GuestUser size={14} />sign in</DropdownMenu.Item
+                    >{/if}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
+        </header>
+        <section
+          data-tour="collections"
+          class="collection-section ruled-section relative p-0 [&::before]:[content:''] [&::before]:absolute [&::before]:[height:1px] [&::before]:[background:color-mix(in_srgb,_var(--border)_58%,_transparent)] [&::before]:[top:0] [&::before]:[left:0] [&::before]:[right:0] [&::before]:pointer-events-none [&>.section-toolbar]:[min-height:38px] [&>.section-toolbar>.plain-button]:[width:auto] [&>.section-toolbar>.plain-button]:[height:auto] [&>.section-toolbar>.plain-button]:min-h-0 [&>.section-toolbar>.plain-button]:p-0 [&>.section-toolbar>.plain-button]:bg-none [&>.section-toolbar>.plain-button:hover]:bg-none max-[520px]:[padding-inline:0]"
+          aria-labelledby="collections-heading"
+        >
+          <div
+            class="section-toolbar py-2! flex items-center justify-between [gap:12px] [min-height:46px] [padding-inline:10px] max-[520px]:[gap:8px]"
+          >
+            <button
+              class="section-toggle [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] max-[520px]:[gap:var(--icon-text-gap)] max-[520px]:[padding-left:0] max-[520px]:[&_h2]:[font-size:24px]"
+              aria-expanded={collectionsOpen}
+              aria-controls="collection-content"
+              onclick={() => (collectionsOpen = !collectionsOpen)}
+              >{#if $categories.filter((c) => c.id !== 'all').length}<FileTrayStacked
+                  size={14}
+                />{:else}<FileTray size={14} />{/if}
+              <h2 id="collections-heading">collections</h2>
+              <span
+                class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
+                >{$categories.filter((c) => c.id !== 'all').length}</span
+              ><ChevronDown
+                size={14}
+                class={collectionsOpen
+                  ? 'chevron expanded [&.expanded]:[transform:rotate(180deg)] motion-safe:[transition:transform_200ms_ease-in-out] motion-reduce:transition-none'
+                  : 'chevron [&.expanded]:[transform:rotate(180deg)] motion-safe:[transition:transform_200ms_ease-in-out] motion-reduce:transition-none'}
+              /></button
+            >
+            <button
+              class="plain-button [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
+              onclick={() => openModal('collection')}><Plus size={15} /></button
+            >
+          </div>
+          <div
+            id="collection-content"
+            class="collapse-grid grid [grid-template-rows:0fr] [grid-template-columns:minmax(0,_1fr)] min-w-0 max-w-full opacity-0 [&.open]:[grid-template-rows:1fr] [&.open]:opacity-100 motion-safe:[transition:grid-template-rows_200ms_cubic-bezier(0.645,_0.045,_0.355,_1),_opacity_150ms_ease-out] motion-reduce:transition-none"
+            class:open={collectionsOpen}
+            inert={!collectionsOpen ? true : undefined}
+            aria-hidden={!collectionsOpen}
+          >
+            <div
+              class="collapse-inner min-h-0 min-w-0 max-w-full overflow-hidden"
+            >
+              {#if $categories.filter((c) => c.id !== 'all').length}
+                <div
+                  class="collection-grid grid [grid-template-columns:repeat(4,_minmax(0,_1fr))] [gap:1px] border-0 [border-block:1px_solid_var(--border)] [border-radius:0] overflow-hidden [background:var(--border)] [&::after]:[content:''] [&::after]:[grid-column-end:-1] [&::after]:[background:var(--sidebar)] [&:has(.collection-card:nth-child(4n):last-child)::after]:hidden max-[520px]:[grid-template-columns:repeat(2,_minmax(0,_1fr))] max-[520px]:[&:has(.collection-card:nth-child(4n):last-child)::after]:block max-[520px]:[&:has(.collection-card:nth-child(2n):last-child)::after]:hidden"
+                >
+                  {#each $categories.filter((c) => c.id !== 'all') as c}<div
+                      class="collection-card flex items-center min-w-0 border-0 [background:var(--sidebar)] [color:var(--muted-foreground)] text-left relative [&:hover_.collection-menu]:opacity-100 [&.active]:[background:var(--accent-soft)] [&:hover]:[background:var(--accent-soft)] [&.selected]:[background:var(--accent-soft)] [&.selected]:[box-shadow:inset_0_0_0_1px_var(--accent-text)] max-[760px]:p-0 max-[760px]:[&_strong]:[font-size:var(--body-font-size)] max-[520px]:p-0 motion-safe:[transition:background-color_140ms_ease]"
+                      class:active={section === c.id}
+                      class:selected={selectedCollections.includes(c.id)}
+                    >
+                      <button
+                        class="collection-main [&_svg]:block flex items-start [gap:var(--icon-text-gap)] min-w-0 flex-1 border-0 bg-none text-inherit [padding:12px] text-left [&>span]:min-w-0 [&_strong]:block [&_strong]:[color:var(--foreground)] [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:[margin-top:5px] [&_small]:[font-size:var(--secondary-text-font-size)]"
+                        aria-pressed={selectedCollections.includes(c.id)}
+                        onclick={(event) => {
+                          if (selectCollectionRange(event, c.id)) return;
+                          navigate(section === c.id ? 'all' : c.id);
+                        }}
+                        ><span
+                          ><strong>{c.name}</strong><small
+                            >{$bookmarks.filter((b) => b.categoryId === c.id)
+                              .length}
+                            links</small
+                          ></span
+                        ></button
+                      ><button
+                        class="collection-menu icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] [width:24px] [height:28px] [margin-right:5px] opacity-0 [&:focus-visible]:opacity-100 motion-safe:[transition:background-color_140ms_ease]"
+                        aria-label={`edit ${c.name}`}
+                        onclick={() => editCollection(c.id)}
+                        ><MoreVertical size={15} /></button
+                      >
+                    </div>{/each}
+                </div>
+              {:else}<div
+                  class="section-empty collection-empty relative [isolation:isolate] flex flex-col items-center justify-center [min-height:92px] text-center border-0 [border-block:1px_solid_var(--border)] [border-radius:0] [background:var(--sidebar)] [padding:16px_12px] [&_strong]:[font-size:var(--section-label-font-size)] [&_strong]:font-medium [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:var(--secondary-text-font-size)] [&_p]:[line-height:1.6] [&_p]:[margin:10px_0_0]"
+                >
+                  <EmptyMono />
+                  <FileTray size={18} class="text-muted-foreground" />
+                  <strong>no collections yet.</strong>
+                  <p>group bookmarks by creating a collection.</p>
+                </div>{/if}
+            </div>
+          </div>
+        </section>
+        <div
+          class="pointer-events-none absolute top-0 -bottom-6 right-full hidden w-[50vw] bg-linear-to-b from-background from-[calc(100%-24px)] to-transparent min-[1061px]:block"
+          aria-hidden="true"
+        ></div>
+        <div
+          class="pointer-events-none absolute top-0 -bottom-6 left-full hidden w-[50vw] bg-linear-to-b from-background from-[calc(100%-24px)] to-transparent min-[781px]:block"
+          aria-hidden="true"
+        ></div>
+        <div
+          class="absolute right-[calc(100%+12px)] top-[calc(100%+8px)] hidden w-max max-w-[220px] flex-col items-end gap-1 min-[1061px]:flex"
+          aria-label="sticky bookmark dates"
+        >
+          {#each dateDeck as item (item.key)}
+            <button
+              animate:flip={{ duration: reduceMotion ? 0 : 180 }}
+              transition:fly={{ y: -6, duration: reduceMotion ? 0 : 160 }}
+              class="flex min-h-7 w-max max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-right text-[11px] leading-none text-muted-foreground shadow-sm [will-change:transform,_opacity] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent-text) [&.month]:font-medium [&.year]:font-semibold"
+              class:month={item.kind === 'month'}
+              class:year={item.kind === 'year'}
+              aria-label={`${item.dates.every((date) => collapsedGroups.includes(date)) ? 'expand' : 'collapse'} ${item.label} bookmark group`}
+              onclick={() => toggleDateDeckItem(item)}
+            >
+              {item.label}
+            </button>
+          {/each}
         </div>
-      </section>
+      </div>
       {#if section !== 'opened'}<section
-          class="pinned-section ruled-section"
+          class="pinned-section ruled-section relative p-0 [&::before]:[content:''] [&::before]:absolute [&::before]:[height:1px] [&::before]:[background:color-mix(in_srgb,_var(--border)_58%,_transparent)] [&::before]:[top:0] [&::before]:[left:0] [&::before]:[right:0] [&::before]:pointer-events-none [&>.section-toolbar]:[min-height:38px] max-[520px]:[padding-inline:0]"
           aria-labelledby="pinned-heading"
         >
-          <div class="section-toolbar py-2!">
+          <div
+            class="section-toolbar py-2! flex items-center justify-between [gap:12px] [min-height:46px] [padding-inline:10px] max-[520px]:[gap:8px]"
+          >
             <button
-              class="section-toggle"
+              class="section-toggle [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] max-[520px]:[gap:var(--icon-text-gap)] max-[520px]:[padding-left:0] max-[520px]:[&_h2]:[font-size:24px]"
               aria-expanded={pinnedOpen}
               aria-controls="pinned-content"
               onclick={() => (pinnedOpen = !pinnedOpen)}
               ><Pin size={15} />
               <h2 id="pinned-heading">pinned</h2>
-              <span class="count">{pinned.length}</span><ChevronDown
+              <span
+                class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
+                >{pinned.length}</span
+              ><ChevronDown
                 size={14}
-                class={pinnedOpen ? 'chevron expanded' : 'chevron'}
+                class={pinnedOpen
+                  ? 'chevron expanded [&.expanded]:[transform:rotate(180deg)] motion-safe:[transition:transform_200ms_ease-in-out] motion-reduce:transition-none'
+                  : 'chevron [&.expanded]:[transform:rotate(180deg)] motion-safe:[transition:transform_200ms_ease-in-out] motion-reduce:transition-none'}
               /></button
             >
           </div>
           <div
             id="pinned-content"
-            class="collapse-grid"
+            class="collapse-grid grid [grid-template-rows:0fr] [grid-template-columns:minmax(0,_1fr)] min-w-0 max-w-full opacity-0 [&.open]:[grid-template-rows:1fr] [&.open]:opacity-100 motion-safe:[transition:grid-template-rows_200ms_cubic-bezier(0.645,_0.045,_0.355,_1),_opacity_150ms_ease-out] motion-reduce:transition-none"
             class:open={pinnedOpen}
             inert={!pinnedOpen ? true : undefined}
             aria-hidden={!pinnedOpen}
           >
-            <div class="collapse-inner">
-              {#if pinned.length}<div class="pin-grid">
+            <div
+              class="collapse-inner min-h-0 min-w-0 max-w-full overflow-hidden"
+            >
+              {#if pinned.length}<div
+                  class="pin-grid grid [grid-template-columns:repeat(4,_minmax(0,_1fr))] [gap:0] [border-block:1px_solid_var(--border)] overflow-hidden bg-transparent max-[520px]:[grid-template-columns:repeat(2,_minmax(0,_1fr))]"
+                >
                   {#each pinned as b}<a
-                      class="pin-card"
+                      class="pin-card flex flex-col items-start [gap:var(--icon-text-gap)] min-w-0 [min-height:66px] [height:66px] [padding:6px_12px] [background:var(--sidebar)] border-0 [border-right:1px_solid_var(--border)] [border-radius:0] [&:nth-child(4n)]:[border-right:0] [&:nth-child(n+5)]:[border-top:1px_solid_var(--border)] [&>.site-letter]:[width:20px] [&>.site-letter]:[height:20px] [&>.site-letter]:[flex:0_0_20px] [&>.site-letter]:[border-radius:0] [&>.site-letter]:bg-transparent [&>.site-letter_img]:[inset:0] [&>.site-letter_img]:[width:20px] [&>.site-letter_img]:[height:20px] [&>.site-letter:has(img)>svg]:[visibility:hidden] [&>div]:min-w-0 [&>div]:w-full [&_strong]:block [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_strong]:[line-height:1.1] [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)] [&_small]:[line-height:1.1] [&_small]:[margin-top:1px] [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&:hover]:[background:var(--secondary)] [&.selected]:[background:var(--accent-soft)] [&.selected]:[box-shadow:inset_0_0_0_1px_var(--accent-text)] max-[520px]:[&:nth-child(4n)]:[border-right:1px_solid_var(--border)] max-[520px]:[&:nth-child(2n)]:[border-right:0] max-[520px]:[&:nth-child(n+3)]:[border-top:1px_solid_var(--border)]"
                       class:selected={selected.includes(b.id)}
                       href={b.url}
                       target="_blank"
@@ -1580,7 +1835,8 @@
                         )
                           selectBookmark(b.id);
                       }}
-                      ><span class="site-letter"
+                      ><span
+                        class="site-letter [width:28px] [height:28px] border-0 [border-radius:4px] bg-transparent grid place-items-center [font-family:var(--font-sans)] [font-size:14px] [font-weight:600] [color:var(--foreground)] shrink-0 relative overflow-hidden [&_img]:absolute [&_img]:[inset:5px] [&_img]:[width:18px] [&_img]:[height:18px] [&_img]:object-contain [&.show-check]:opacity-0"
                         ><Globe size={18} /><img
                           src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
                           alt=""
@@ -1592,7 +1848,9 @@
                       </div></a
                     >{/each}
                 </div>
-              {:else}<div class="section-empty">
+              {:else}<div
+                  class="section-empty relative [isolation:isolate] flex flex-col items-center justify-center [min-height:92px] text-center border-0 [border-block:1px_solid_var(--border)] [border-radius:0] [background:var(--sidebar)] [padding:16px_12px] [&_strong]:[font-size:var(--section-label-font-size)] [&_strong]:font-medium [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:var(--secondary-text-font-size)] [&_p]:[line-height:1.6] [&_p]:[margin:10px_0_0]"
+                >
                   <EmptyMono />
                   <strong>no pinned bookmarks yet.</strong>
                   <p>keep your important bookmarks pinned for quick access.</p>
@@ -1600,25 +1858,37 @@
             </div>
           </div>
         </section>{/if}
-      <section class="library-section ruled-section" aria-label="bookmarks">
-        <div class="section-toolbar library-toolbar py-2!">
-          <div class="library-title">
+      <section
+        class="library-section ruled-section relative p-0 [&::before]:[content:''] [&::before]:absolute [&::before]:[height:1px] [&::before]:[background:color-mix(in_srgb,_var(--border)_58%,_transparent)] [&::before]:[top:0] [&::before]:[left:0] [&::before]:[right:0] [&::before]:pointer-events-none [&>.section-toolbar]:[min-height:38px] min-w-0 max-w-full max-[520px]:[padding-inline:0]"
+        aria-label="bookmarks"
+      >
+        <div
+          class="section-toolbar library-toolbar py-2! flex items-center justify-between [gap:12px] [min-height:46px] [padding-inline:10px] max-[520px]:[gap:8px] max-[520px]:flex-wrap max-[520px]:[padding-block:10px_0]"
+        >
+          <div
+            class="library-title [&_svg]:block flex items-center [gap:var(--icon-text-gap)] [color:var(--muted-foreground)] [padding-left:0] max-[520px]:[&_h2]:[font-size:24px]"
+          >
             <BookmarkIcon size={15} />
             <h2>{heading}</h2>
-            <span class="count">{visible.length}</span>
+            <span
+              class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
+              >{visible.length}</span
+            >
           </div>
-          <div class="library-actions">
+          <div
+            class="library-actions flex [gap:var(--icon-icon-gap)] items-center [&>.plain-button]:[width:auto] [&>.plain-button]:[height:auto] [&>.plain-button]:min-h-0 [&>.plain-button]:p-0 [&>.plain-button]:bg-none [&>.list-options>.list-options-trigger]:[width:auto] [&>.list-options>.list-options-trigger]:[height:auto] [&>.list-options>.list-options-trigger]:min-h-0 [&>.list-options>.list-options-trigger]:p-0 [&>.list-options>.list-options-trigger]:bg-none [&>.plain-button:hover]:bg-none [&>.list-options>.list-options-trigger:hover]:bg-none max-[520px]:w-full max-[520px]:justify-end max-[520px]:[gap:10px]"
+          >
             <button
-              class="plain-button"
+              class="plain-button [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
               data-tour="save"
               disabled={!ready}
               onclick={() => openModal('bookmark')}><Plus size={15} /></button
             >
-            <div class="list-options">
+            <div class="list-options relative flex items-center">
               <button
                 bind:this={listToolsTrigger}
                 data-tour="mixer"
-                class="icon-button list-options-trigger"
+                class="icon-button list-options-trigger inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] [color:var(--foreground)] [&_svg]:[fill:currentColor] [&:focus-visible]:[outline:2px_solid_var(--accent-text)] [&:focus-visible]:[outline-offset:2px] [&[aria-expanded=true]]:bg-none [&[aria-expanded=true]]:[color:var(--foreground)] motion-safe:[transition:background-color_140ms_ease]"
                 aria-label="bookmark actions"
                 title="bookmark actions"
                 aria-expanded={listToolsOpen}
@@ -1628,13 +1898,13 @@
               >
               <div
                 id="bookmark-action-rail"
-                class="list-options-rail"
+                class="list-options-rail absolute [left:calc(100%_+_7px)] [top:50%] [z-index:4] flex items-center [gap:3px] [width:max-content] [transform:translateY(-50%)] pointer-events-none [&_.plain-button]:opacity-0 [&_.plain-button]:[transform:translateX(-9px)_scale(0.97)] [&_.plain-button]:[background:var(--background)] [&_.plain-button]:[box-shadow:0_0_0_1px_var(--border)] [&.open]:[pointer-events:auto] [&.open_.plain-button]:opacity-100 [&.open_.plain-button]:[transform:translateX(0)_scale(1)] max-[1060px]:[right:0] max-[1060px]:[left:auto] max-[1060px]:[top:calc(100%_+_7px)] max-[1060px]:transform-none motion-safe:[&_.plain-button]:[transition:opacity_150ms_ease-out,_transform_190ms_cubic-bezier(0.22,_1,_0.36,_1),_background-color_140ms_ease] motion-safe:[&_.plain-button:nth-child(1)]:[transition-delay:90ms] motion-safe:[&_.plain-button:nth-child(2)]:[transition-delay:45ms] motion-safe:[&_.plain-button:nth-child(3)]:[transition-delay:0ms] motion-safe:[&.open_.plain-button:nth-child(1)]:[transition-delay:0ms] motion-safe:[&.open_.plain-button:nth-child(2)]:[transition-delay:45ms] motion-safe:[&.open_.plain-button:nth-child(3)]:[transition-delay:90ms] motion-reduce:[&_.plain-button]:transition-none"
                 class:open={listToolsOpen}
                 aria-hidden={!listToolsOpen}
                 inert={!listToolsOpen ? true : undefined}
               >
                 <button
-                  class="plain-button"
+                  class="plain-button [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
                   class:control-active={selectMode}
                   aria-pressed={selectMode}
                   onclick={() => {
@@ -1643,7 +1913,7 @@
                   }}><SelectList size={14} />select</button
                 >
                 <button
-                  class="plain-button"
+                  class="plain-button [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
                   disabled={!visible.length}
                   onclick={() => {
                     selected = visible.map((b) => b.id);
@@ -1651,7 +1921,7 @@
                   }}><SelectAll size={14} />select all</button
                 >
                 <button
-                  class="plain-button"
+                  class="plain-button [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
                   disabled={!groups.length}
                   onclick={() => {
                     collapsedGroups = groups.every((g) =>
@@ -1669,7 +1939,10 @@
             </div>
           </div>
         </div>
-        {#if loadError}<div class="error-panel" role="alert">
+        {#if loadError}<div
+            class="error-panel [margin:30px_0] [padding:20px] [border:1px_solid_#c56358] [font-size:var(--body-font-size)] [border-radius:8px] [&_button]:block [&_button]:underline [&_button]:[margin-top:12px]"
+            role="alert"
+          >
             {loadError}<button
               onclick={() => {
                 loadError = '';
@@ -1677,50 +1950,250 @@
               }}>try again</button
             >
           </div>
-        {:else if !ready}<div class="section-empty" role="status">
+        {:else if !ready}<div
+            class="section-empty relative [isolation:isolate] flex flex-col items-center justify-center [min-height:92px] text-center border-0 [border-block:1px_solid_var(--border)] [border-radius:0] [background:var(--sidebar)] [padding:16px_12px] [&_strong]:[font-size:var(--section-label-font-size)] [&_strong]:font-medium [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:var(--secondary-text-font-size)] [&_p]:[line-height:1.6] [&_p]:[margin:10px_0_0]"
+            role="status"
+          >
             loading bookmarks…
           </div>
         {:else if visible.length}
           {#each groups as group}
+            {@const collapsed = collapsedGroups.includes(group.date)}
             <div
-              class="date-group"
-              class:collapsed={collapsedGroups.includes(group.date)}
+              data-date-key={group.date}
+              class="date-group relative min-w-0 [&.collapsed_.date-group-body]:[min-height:46px] [&>.collapse-grid]:relative [&>.collapse-grid]:[z-index:1] [&>.collapse-grid]:[clip-path:inset(0)] [&>.collapse-grid]:min-w-0 [&>.collapse-grid]:max-w-full max-[1060px]:[&.collapsed]:min-h-0 max-[1060px]:[&.collapsed_.date-group-body]:[min-height:38px] motion-safe:[&>.collapse-grid]:[transition:grid-template-rows_250ms_cubic-bezier(0.22,_1,_0.36,_1),_opacity_180ms_ease-in-out]"
+              class:collapsed
             >
               <button
-                class="date-heading"
-                aria-expanded={!collapsedGroups.includes(group.date)}
+                class="date-heading [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] absolute [right:calc(100%_+_12px)] [top:0] justify-end [min-height:46px] [width:max-content] [font-size:var(--section-label-font-size)] max-[1060px]:static max-[1060px]:justify-start max-[1060px]:[min-height:38px]"
+                aria-expanded={!collapsed}
                 onclick={() => toggleGroup(group.date)}
-                ><span>{group.date}</span><span class="count"
+                ><span>{group.date}</span><span
+                  class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
                   >{group.items.length}</span
                 ><span
-                  class="t-icon-swap date-icon-swap"
-                  data-state={collapsedGroups.includes(group.date)
-                    ? 'closed'
-                    : 'opened'}
+                  class="t-icon-swap date-icon-swap relative inline-grid [grid-template:15px_/_15px] [width:15px] [height:15px] overflow-hidden shrink-0 place-items-center [isolation:isolate] [vertical-align:middle] [&_.t-icon]:[grid-area:1_/_1] [&_.t-icon]:grid [&_.t-icon]:place-items-center [&_.t-icon]:[width:15px] [&_.t-icon]:[height:15px] [&_.t-icon]:overflow-hidden [&_.t-icon]:[line-height:0] [&_.t-icon]:[transition:opacity_var(--icon-swap-dur)_var(--icon-swap-ease),_filter_var(--icon-swap-dur)_var(--icon-swap-ease),_transform_var(--icon-swap-dur)_var(--icon-swap-ease),_visibility_var(--icon-swap-dur)_var(--icon-swap-ease)] [&_.t-icon]:[will-change:opacity,_filter,_transform] [&[data-state=closed]_.t-icon[data-icon=closed]]:opacity-100 [&[data-state=closed]_.t-icon[data-icon=closed]]:[visibility:visible] [&[data-state=closed]_.t-icon[data-icon=closed]]:[filter:blur(0)] [&[data-state=closed]_.t-icon[data-icon=closed]]:[transform:scale(1)] [&[data-state=opened]_.t-icon[data-icon=opened]]:opacity-100 [&[data-state=opened]_.t-icon[data-icon=opened]]:[visibility:visible] [&[data-state=opened]_.t-icon[data-icon=opened]]:[filter:blur(0)] [&[data-state=opened]_.t-icon[data-icon=opened]]:[transform:scale(1)] [&[data-state=closed]_.t-icon[data-icon=opened]]:opacity-0 [&[data-state=closed]_.t-icon[data-icon=opened]]:[visibility:hidden] [&[data-state=closed]_.t-icon[data-icon=opened]]:pointer-events-none [&[data-state=closed]_.t-icon[data-icon=opened]]:[filter:blur(var(--icon-swap-blur))] [&[data-state=closed]_.t-icon[data-icon=opened]]:[transform:scale(var(--icon-swap-start-scale))] [&[data-state=opened]_.t-icon[data-icon=closed]]:opacity-0 [&[data-state=opened]_.t-icon[data-icon=closed]]:[visibility:hidden] [&[data-state=opened]_.t-icon[data-icon=closed]]:pointer-events-none [&[data-state=opened]_.t-icon[data-icon=closed]]:[filter:blur(var(--icon-swap-blur))] [&[data-state=opened]_.t-icon[data-icon=closed]]:[transform:scale(var(--icon-swap-start-scale))] [&[data-state=closed]_[data-icon=opened]_.date-icon-glyph]:[transform:rotate(90deg)] [&[data-state=opened]_[data-icon=closed]_.date-icon-glyph]:[transform:rotate(-90deg)] motion-reduce:[&_.t-icon]:[transition:none!important]"
+                  data-state={collapsed ? 'closed' : 'opened'}
                   aria-hidden="true"
-                >
-                  <span class="t-icon" data-icon="closed"
-                    ><span class="date-icon-glyph"
+                  ><span
+                    class={[
+                      't-icon',
+                      collapsed
+                        ? 'opacity-100'
+                        : 'pointer-events-none opacity-0'
+                    ]}
+                    data-icon="closed"
+                    ><span
+                      class="date-icon-glyph grid [transition:transform_var(--icon-swap-dur)_var(--icon-swap-ease)] [will-change:transform] motion-reduce:transition-none"
                       ><ChevronDown size={15} /></span
                     ></span
-                  >
-                  <span class="t-icon" data-icon="opened"
-                    ><span class="date-icon-glyph"
+                  ><span
+                    class={[
+                      't-icon',
+                      collapsed
+                        ? 'pointer-events-none opacity-0'
+                        : 'opacity-100'
+                    ]}
+                    data-icon="opened"
+                    ><span
+                      class="date-icon-glyph grid [transition:transform_var(--icon-swap-dur)_var(--icon-swap-ease)] [will-change:transform] motion-reduce:transition-none"
                       ><DateGroupOpen size={15} /></span
                     ></span
-                  >
-                </span></button
+                  ></span
+                ></button
               >
               <div
-                class="collapse-grid date-summary-collapse"
-                class:open={collapsedGroups.includes(group.date)}
-                inert={!collapsedGroups.includes(group.date) ? true : undefined}
-                aria-hidden={!collapsedGroups.includes(group.date)}
+                class="date-group-body relative min-w-0 w-full [&>.collapse-grid]:relative [&>.collapse-grid]:[z-index:1] [&>.collapse-grid:not(.open)]:[clip-path:inset(0)] [&>.collapse-grid]:min-w-0 [&>.collapse-grid]:max-w-full motion-safe:[&>.collapse-grid]:[transition:grid-template-rows_250ms_cubic-bezier(0.22,_1,_0.36,_1),_opacity_180ms_ease-in-out]"
               >
-                <div class="collapse-inner">
+                <div
+                  class="collapse-grid date-bookmarks-collapse grid [grid-template-rows:0fr] [grid-template-columns:minmax(0,_1fr)] min-w-0 max-w-full opacity-0 [&.open]:[grid-template-rows:1fr] [&.open]:opacity-100 [&.open_.collapse-inner]:overflow-visible motion-safe:[transition:grid-template-rows_200ms_cubic-bezier(0.645,_0.045,_0.355,_1),_opacity_150ms_ease-out] motion-reduce:transition-none"
+                  class:open={!collapsed}
+                  inert={collapsed ? true : undefined}
+                  aria-hidden={collapsed}
+                >
+                  <div
+                    class="collapse-inner min-h-0 min-w-0 max-w-full overflow-hidden"
+                  >
+                    <div
+                      class="bookmark-items w-full max-w-full min-w-0 border-0 [border-radius:0] bg-transparent [user-select:none] overflow-visible"
+                      role="listbox"
+                      tabindex="-1"
+                      aria-multiselectable="true"
+                      aria-label={`bookmarks saved ${group.date}; drag across rows to select`}
+                      onpointerdown={startDrag}
+                    >
+                      {#each group.items as b (b.id)}
+                        <div
+                          data-bookmark={b.id}
+                          class="bookmark-row min-w-0 w-full max-w-full flex items-center [gap:12px] [min-height:64px] [padding:14px] relative [isolation:isolate] overflow-visible cursor-pointer [&+.bookmark-row]:[border-top:1px_solid_var(--border)] [&::before]:[content:''] [&::before]:absolute [&::before]:[z-index:0] [&::before]:[inset:0] [&::before]:bg-transparent [&::before]:pointer-events-none [&>*]:relative [&>*]:[z-index:1] [&:hover]:bg-transparent [&:hover::before]:[background:var(--row-hover)] [&.selected]:bg-transparent [&.selected]:[box-shadow:none] [&.selected::before]:[background:var(--accent-soft)] [&.context-active::before]:[background:color-mix(in_srgb,_var(--row-hover)_80%,_var(--foreground)_4%)] [&:focus-visible]:[outline:2px_solid_var(--accent-text)] [&:focus-visible]:[outline-offset:-2px] [&:hover_.row-actions_.icon-button]:opacity-100 max-[520px]:[gap:10px] max-[520px]:[padding:12px] motion-safe:[transition:background-color_140ms_ease]"
+                          role="option"
+                          tabindex="0"
+                          aria-selected={selected.includes(b.id)}
+                          class:selected={selected.includes(b.id)}
+                          class:is-read={flags[b.id]?.read}
+                          class:context-active={context?.bookmark?.id === b.id}
+                          onclick={(event) => {
+                            if (dragging) {
+                              event.preventDefault();
+                              dragging = false;
+                              return;
+                            }
+                            if (
+                              (event.target as HTMLElement).closest(
+                                'a,button,input'
+                              )
+                            )
+                              return;
+                            event.preventDefault();
+                            if (
+                              !selectBookmarkRange(
+                                event,
+                                b.id,
+                                visible.map((bookmark) => bookmark.id)
+                              )
+                            )
+                              selectBookmark(b.id);
+                          }}
+                          onkeydown={(event) => {
+                            if (
+                              event.target !== event.currentTarget ||
+                              !['Enter', ' '].includes(event.key)
+                            )
+                              return;
+                            event.preventDefault();
+                            selectBookmark(b.id);
+                          }}
+                          aria-label={b.title}
+                        >
+                          <div
+                            class="bookmark-leading [width:30px] [height:30px] relative shrink-0 [&_.site-letter]:[width:30px] [&_.site-letter]:[height:30px] [&_.site-letter]:[border-radius:7px] [&_.site-letter]:[background:var(--secondary)] [&_.site-letter_img]:[inset:5px] [&_.site-letter_img]:[width:20px] [&_.site-letter_img]:[height:20px] [&_.site-letter:has(img)>svg]:[visibility:hidden]"
+                          >
+                            <span
+                              class="site-letter [width:28px] [height:28px] border-0 [border-radius:4px] bg-transparent grid place-items-center [font-family:var(--font-sans)] [font-size:14px] [font-weight:600] [color:var(--foreground)] shrink-0 relative overflow-hidden [&_img]:absolute [&_img]:[inset:5px] [&_img]:[width:18px] [&_img]:[height:18px] [&_img]:object-contain [&.show-check]:opacity-0"
+                              class:show-check={selectMode ||
+                                selected.includes(b.id)}
+                              ><Globe size={18} /><img
+                                src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
+                                alt=""
+                                onerror={(event) =>
+                                  event.currentTarget.remove()}
+                              /></span
+                            ><input
+                              class="row-check opacity-0 cursor-pointer [appearance:none] absolute [inset:6px] m-0 [width:19px] [height:19px] [background:var(--card)] [border:1px_solid_var(--muted-foreground)] [border-radius:4px] [&:checked]:[background:var(--primary)] [&:checked]:[border-color:var(--primary)] [&:checked::after]:[content:''] [&:checked::after]:absolute [&:checked::after]:[width:8px] [&:checked::after]:[height:5px] [&:checked::after]:[border:solid_var(--primary-foreground)] [&:checked::after]:[border-width:0_0_2px_2px] [&:checked::after]:[transform:rotate(-45deg)] [&:checked::after]:[top:4px] [&:checked::after]:[left:4px] [&:focus-visible]:opacity-100 [&.check-visible]:opacity-100"
+                              class:check-visible={selectMode ||
+                                selected.includes(b.id)}
+                              type="checkbox"
+                              checked={selected.includes(b.id)}
+                              onclick={(event) => {
+                                if (
+                                  !selectBookmarkRange(
+                                    event,
+                                    b.id,
+                                    visible.map((bookmark) => bookmark.id)
+                                  )
+                                )
+                                  event.stopPropagation();
+                              }}
+                              onchange={() => toggleSelect(b.id)}
+                              aria-label={`select ${b.title}`}
+                            />
+                          </div>
+                          <div
+                            class="bookmark-content min-w-0 overflow-hidden flex flex-col items-stretch [gap:3px] [flex:1_1_0%] max-[760px]:[gap:12px] max-[520px]:block"
+                          >
+                            <a
+                              class="bookmark-title min-w-0 block w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis [font-size:14px] font-medium [line-height:1.4] [&_svg]:hidden [&:hover]:underline [&:hover]:[text-underline-offset:3px] [.is-read_&]:[color:var(--muted-foreground)] max-[520px]:max-w-full max-[520px]:[width:auto] max-[520px]:[font-size:14px]"
+                              href={b.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onclick={(event) => {
+                                event.stopPropagation();
+                                recordOpen(b.id);
+                              }}>{b.title}<ArrowUpRight size={14} /></a
+                            >
+                            <div
+                              class="bookmark-meta w-full max-w-full min-w-0 [font-size:var(--secondary-text-font-size)] [line-height:1.4] [color:var(--muted-foreground)] overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:[margin-top:3px] max-[520px]:[font-size:var(--secondary-text-font-size)]"
+                            >
+                              <span>{b.url}</span>
+                            </div>
+                          </div>
+                          <div
+                            class="row-actions flex items-center shrink-0 [gap:var(--icon-icon-gap)] [margin-left:auto] max-w-full [&_.icon-button]:[width:16px] [&_.icon-button]:[height:28px] [&_.icon-button]:opacity-0 [&_.icon-button:focus-visible]:opacity-100 [&_.icon-button:hover]:bg-transparent [&_.icon-button:hover]:[color:var(--foreground)] [&_.icon-button:focus-visible]:bg-transparent [&_.icon-button:focus-visible]:[color:var(--foreground)] [&_.icon-button.pinned]:[color:var(--foreground)] [&_.icon-button.pinned_svg]:[fill:currentColor] [&_.icon-button.reminder-active]:opacity-100 [&_.icon-button.reminder-active]:[color:var(--foreground)]"
+                          >
+                            <button
+                              class="icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
+                              class:reminder-active={reminderStatus(b) ===
+                                'active' && !!b.reminderAt}
+                              aria-label={`remind me about ${b.title}`}
+                              title={b.reminderAt
+                                ? formatReminder(b.reminderAt)
+                                : 'set reminder'}
+                              onclick={(event) =>
+                                void showReminderPopover(event, b)}
+                              ><ActionBell size={14} /></button
+                            >
+                            <button
+                              class="icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] max-[780px]:[&.pinned]:opacity-100 motion-safe:[transition:background-color_140ms_ease]"
+                              class:pinned={flags[b.id]?.pinned}
+                              aria-label={flags[b.id]?.pinned
+                                ? `unpin ${b.title}`
+                                : `pin ${b.title}`}
+                              title={flags[b.id]?.pinned ? 'unpin' : 'pin'}
+                              onclick={(event) => {
+                                event.stopPropagation();
+                                toggleFlag(b.id, 'pinned');
+                              }}><Pin size={14} /></button
+                            ><button
+                              class="icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
+                              aria-label={copiedTargets.includes(
+                                `bookmark:${b.id}`
+                              )
+                                ? `link copied for ${b.title}`
+                                : `copy link for ${b.title}`}
+                              title="copy link"
+                              onclick={(event) => {
+                                event.stopPropagation();
+                                void copyLink(b);
+                              }}
+                              ><CopyIconSwap
+                                copied={copiedTargets.includes(
+                                  `bookmark:${b.id}`
+                                )}
+                                size={14}
+                              /></button
+                            >
+                            <button
+                              class="icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
+                              title="more options"
+                              aria-label={`more options for ${b.title}`}
+                              onclick={(e) => showContext(e, b)}
+                              ><EllipsisVertical size={16} /></button
+                            >
+                          </div>
+                          {#if flags[b.id]?.pinned}<span
+                              class="absolute! [left:calc(100%_+_8px)] top-1/2 hidden! -translate-y-1/2 place-items-center text-foreground [&_svg]:fill-current min-[781px]:grid!"
+                              aria-hidden="true"><Pin size={14} /></span
+                            >{/if}
+                          {#if b.reminderAt && reminderStatus(b) === 'done'}<span
+                              class="reminder-done-marker absolute [right:14px] [top:50%] grid place-items-center [color:var(--muted-foreground)] [transform:translateY(-50%)]"
+                              title="reminder completed"
+                              aria-label="reminder completed"
+                              ><ReminderDone size={16} /></span
+                            >{/if}
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="date-summary absolute [inset:0] [min-height:46px] flex items-center justify-center opacity-0 pointer-events-none [transition:opacity_160ms_ease] [z-index:0] [&.visible]:opacity-100 [&.visible]:[pointer-events:auto] max-[1060px]:[min-height:38px] motion-reduce:transition-none"
+                  class:visible={collapsed}
+                  inert={!collapsed ? true : undefined}
+                  aria-hidden={!collapsed}
+                >
                   <button
                     type="button"
-                    class="flex w-full flex-col gap-1.5 px-0 pt-0 pb-2"
+                    class="date-summary-trigger flex w-full flex-col [gap:6px] [padding:6px_0_8px] bg-none [border:none] cursor-pointer"
                     aria-label={`expand ${group.items.length} bookmarks from ${group.date}`}
                     onclick={() => toggleGroup(group.date)}
                   >
@@ -1737,185 +2210,18 @@
                       ></span>
                     {/each}
                     <span
-                      class="date-summary-count text-center leading-none text-muted-foreground"
+                      class="date-summary-count text-center leading-none text-muted-foreground [font-size:var(--body-font-size)]"
                       >{group.items.length}
                       {group.items.length === 1 ? 'link' : 'links'}</span
                     >
                   </button>
                 </div>
               </div>
-              <div
-                class="collapse-grid date-bookmarks-collapse"
-                class:open={!collapsedGroups.includes(group.date)}
-                inert={collapsedGroups.includes(group.date) ? true : undefined}
-                aria-hidden={collapsedGroups.includes(group.date)}
-              >
-                <div class="collapse-inner">
-                  <div
-                    class="bookmark-items"
-                    role="listbox"
-                    tabindex="-1"
-                    aria-multiselectable="true"
-                    aria-label={`bookmarks saved ${group.date}; drag across rows to select`}
-                    onpointerdown={startDrag}
-                  >
-                    {#each group.items as b (b.id)}
-                      <div
-                        data-bookmark={b.id}
-                        class="bookmark-row"
-                        role="option"
-                        tabindex="0"
-                        aria-selected={selected.includes(b.id)}
-                        class:selected={selected.includes(b.id)}
-                        class:is-read={flags[b.id]?.read}
-                        class:context-active={context?.bookmark?.id === b.id}
-                        onclick={(event) => {
-                          if (dragging) {
-                            event.preventDefault();
-                            dragging = false;
-                            return;
-                          }
-                          if (
-                            (event.target as HTMLElement).closest(
-                              'a,button,input'
-                            )
-                          )
-                            return;
-                          event.preventDefault();
-                          if (
-                            !selectBookmarkRange(
-                              event,
-                              b.id,
-                              visible.map((bookmark) => bookmark.id)
-                            )
-                          )
-                            selectBookmark(b.id);
-                        }}
-                        onkeydown={(event) => {
-                          if (
-                            event.target !== event.currentTarget ||
-                            !['Enter', ' '].includes(event.key)
-                          )
-                            return;
-                          event.preventDefault();
-                          selectBookmark(b.id);
-                        }}
-                        oncontextmenu={(e) => {
-                          e.stopPropagation();
-                          void showContext(e, b);
-                        }}
-                        aria-label={b.title}
-                      >
-                        <div class="bookmark-leading">
-                          <span
-                            class="site-letter"
-                            class:show-check={selectMode ||
-                              selected.includes(b.id)}
-                            ><Globe size={18} /><img
-                              src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
-                              alt=""
-                              onerror={(event) => event.currentTarget.remove()}
-                            /></span
-                          ><input
-                            class="row-check"
-                            class:check-visible={selectMode ||
-                              selected.includes(b.id)}
-                            type="checkbox"
-                            checked={selected.includes(b.id)}
-                            onclick={(event) => {
-                              if (
-                                !selectBookmarkRange(
-                                  event,
-                                  b.id,
-                                  visible.map((bookmark) => bookmark.id)
-                                )
-                              )
-                                event.stopPropagation();
-                            }}
-                            onchange={() => toggleSelect(b.id)}
-                            aria-label={`select ${b.title}`}
-                          />
-                        </div>
-                        <div class="bookmark-content">
-                          <a
-                            class="bookmark-title"
-                            href={b.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onclick={(event) => {
-                              event.stopPropagation();
-                              recordOpen(b.id);
-                            }}>{b.title}<ArrowUpRight size={14} /></a
-                          >
-                          <div class="bookmark-meta">
-                            <span>{b.url}</span>
-                          </div>
-                        </div>
-                        <div class="row-actions">
-                          <button
-                            class="icon-button"
-                            class:reminder-active={reminderStatus(b) ===
-                              'active' && !!b.reminderAt}
-                            aria-label={`remind me about ${b.title}`}
-                            title={b.reminderAt
-                              ? formatReminder(b.reminderAt)
-                              : 'set reminder'}
-                            onclick={(event) =>
-                              void showReminderPopover(event, b)}
-                            ><ActionBell size={14} /></button
-                          >
-                          <button
-                            class="icon-button"
-                            class:pinned={flags[b.id]?.pinned}
-                            aria-label={flags[b.id]?.pinned
-                              ? `unpin ${b.title}`
-                              : `pin ${b.title}`}
-                            title={flags[b.id]?.pinned ? 'unpin' : 'pin'}
-                            onclick={(event) => {
-                              event.stopPropagation();
-                              toggleFlag(b.id, 'pinned');
-                            }}><Pin size={14} /></button
-                          ><button
-                            class="icon-button"
-                            aria-label={copiedTargets.includes(
-                              `bookmark:${b.id}`
-                            )
-                              ? `link copied for ${b.title}`
-                              : `copy link for ${b.title}`}
-                            title="copy link"
-                            onclick={(event) => {
-                              event.stopPropagation();
-                              void copyLink(b);
-                            }}
-                            ><CopyIconSwap
-                              copied={copiedTargets.includes(
-                                `bookmark:${b.id}`
-                              )}
-                              size={14}
-                            /></button
-                          >
-                          <button
-                            class="icon-button"
-                            title="more options"
-                            aria-label={`more options for ${b.title}`}
-                            onclick={(e) => showContext(e, b)}
-                            ><EllipsisVertical size={16} /></button
-                          >
-                        </div>
-                        {#if b.reminderAt && reminderStatus(b) === 'done'}<span
-                            class="reminder-done-marker"
-                            title="reminder completed"
-                            aria-label="reminder completed"
-                            ><ReminderDone size={16} /></span
-                          >{/if}
-                      </div>
-                    {/each}
-                  </div>
-                </div>
-              </div>
             </div>
           {/each}
-        {:else}<div class="section-empty bookmarks-empty">
+        {:else}<div
+            class="section-empty bookmarks-empty relative [isolation:isolate] flex flex-col items-center justify-center [min-height:92px] text-center border-0 [border-block:1px_solid_var(--border)] [border-radius:0] [background:var(--sidebar)] [padding:16px_12px] [&_strong]:[font-size:var(--section-label-font-size)] [&_strong]:font-medium [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:var(--secondary-text-font-size)] [&_p]:[line-height:1.6] [&_p]:[margin:10px_0_0] [margin-top:6px] [min-height:108px] [&_.plain-button]:[margin-top:12px] [&_.plain-button]:[font-size:var(--body-font-size)]"
+          >
             <EmptyMono />
             <strong>no bookmarks here yet.</strong>
             <p>
@@ -1924,7 +2230,7 @@
                 : 'save a link to start your collection.'}
             </p>
             {#if section === 'all'}<button
-                class="plain-button"
+                class="plain-button [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
                 disabled={saving}
                 onclick={addExamples}
                 >{saving
@@ -1939,17 +2245,17 @@
   </div>
 
   <div
-    class="fixed inset-x-0 bottom-0 z-20 mx-auto h-40 w-[calc(100%-40px)] max-w-180 bg-linear-to-t from-background via-background/80 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:w-[calc(100%-20px)]"
+    class="fixed inset-x-0 bottom-0 z-20 mx-auto h-40 w-[min(var(--reading-max),calc(100%-40px))] bg-linear-to-t from-background via-background/80 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:h-24 max-[520px]:w-[calc(100%-20px)]"
     aria-hidden="true"
   ></div>
 
   {#if !selectedCollections.length && !selected.length}<nav
-      class="library-tabs floating-library-tabs"
+      class="library-tabs floating-library-tabs fixed grid [grid-template-columns:max-content_max-content] p-0 [border:1px_solid_var(--border)] [border-radius:22px] [background:var(--sidebar)] overflow-hidden [z-index:30] [left:50%] [bottom:30px] [min-height:42px] [transform:translateX(-50%)] [box-shadow:var(--shadow)] [&.floating-library-tabs_button]:[min-height:40px] [&.floating-library-tabs_button]:[font-size:var(--section-label-font-size)] [&_button]:relative [&_button]:[z-index:1] [&_button]:inline-flex [&_button]:items-center [&_button]:justify-center [&_button]:[gap:var(--icon-text-gap)] [&_button]:min-w-0 [&_button]:[min-height:28px] [&_button]:[padding:4px_9px] [&_button]:bg-none [&_button]:border-0 [&_button]:[border-radius:21px] [&_button]:[font-size:11px] [&_button]:[line-height:1] [&_button]:[color:var(--muted-foreground)] [&_button]:whitespace-nowrap [&_button_svg]:block [&_button.active]:[color:var(--foreground)] [&_button.active_svg]:[fill:currentColor] max-[760px]:[&_button]:[padding:4px_9px] max-[520px]:[grid-template-columns:repeat(4,_max-content)] max-[520px]:[bottom:max(10px,_env(safe-area-inset-bottom))] motion-safe:[transform-origin:center_bottom] motion-safe:[animation:selection-dock-in_360ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[will-change:transform,_opacity]"
       aria-label="library"
     >
       <span
         class:opened={section === 'opened'}
-        class="tab-indicator bg-(--accent-soft)!"
+        class="tab-indicator bg-(--accent-soft)! absolute [z-index:0] [top:-1px] [bottom:-1px] [left:-1px] [border:1px_solid_var(--border)] [border-radius:22px] [background:var(--secondary)] [box-shadow:0_1px_5px_#0000000a] motion-safe:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1),_width_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
         style:width={`${(section === 'opened' ? openedTabWidth : bookmarksTabWidth) + 2}px`}
         style:transform={`translateX(${section === 'opened' ? 0 : openedTabWidth}px)`}
         aria-hidden="true"
@@ -1970,26 +2276,57 @@
             size={14}
           />{:else}<BookmarkIcon size={14} />{/if}bookmarks</button
       >
+      <button
+        type="button"
+        class="hidden! text-[#e09a22]! max-[520px]:inline-flex!"
+        aria-label="install the linux desktop widget"
+        aria-haspopup="dialog"
+        aria-controls="linux-widget-panel"
+        aria-expanded={linuxPanelOpen}
+        onclick={() => void openLinuxPanel()}
+        ><UbuntuWidgetLauncher size={18} /><span>linux</span></button
+      >
+      <button
+        type="button"
+        class="hidden! text-[#0b84ff]! max-[520px]:inline-flex!"
+        aria-label="install the mac desktop widget"
+        aria-haspopup="dialog"
+        aria-controls="widget-panel"
+        aria-expanded={widgetPanelOpen}
+        onclick={() => void openWidgetPanel()}
+        ><MacWidgetLauncher size={18} /><span>mac</span></button
+      >
     </nav>{/if}
 
-  <div class="platform-launchers" aria-label="chikota desktop tools">
-    <span class="platform-launcher-wrap">
+  <div
+    class="platform-launchers fixed [right:20px] [bottom:20px] [z-index:40] flex items-center [gap:8px] max-[520px]:hidden"
+    aria-label="chikota desktop tools"
+  >
+    <span
+      class="platform-launcher-wrap relative inline-flex [--platform-color:#e09a22]"
+    >
       {#if detectedPlatform === 'linux' && platformCalloutOpen}<span
-          class="platform-callout linux-callout"
+          class="platform-callout linux-callout absolute [right:0] [bottom:calc(100%_+_2px)] [z-index:2] [color:#fff] [font-family:var(--font-sans)] [font-size:var(--body-font-size)] [line-height:20px] [animation:callout-fade-in_180ms_ease-out_both] motion-reduce:[animation:none]"
           role="status"
         >
-          <span class="callout-dot small" aria-hidden="true"></span>
-          <span class="callout-dot large" aria-hidden="true"></span>
+          <span
+            class="callout-dot small absolute block rounded-full [background:var(--platform-color)] [transform:scale(0)] [animation:callout-dot-in_120ms_ease-out_both] [&.small]:[right:-5px] [&.small]:[bottom:-10px] [&.small]:[width:4px] [&.small]:[height:4px] [&.small]:[animation-delay:70ms] [&.large]:[right:-4px] [&.large]:[bottom:-4px] [&.large]:[width:12px] [&.large]:[height:12px] [&.large]:[animation-delay:20ms] motion-reduce:[animation:none]"
+            aria-hidden="true"
+          ></span>
+          <span
+            class="callout-dot large absolute block rounded-full [background:var(--platform-color)] [transform:scale(0)] [animation:callout-dot-in_120ms_ease-out_both] [&.small]:[right:-5px] [&.small]:[bottom:-10px] [&.small]:[width:4px] [&.small]:[height:4px] [&.small]:[animation-delay:70ms] [&.large]:[right:-4px] [&.large]:[bottom:-4px] [&.large]:[width:12px] [&.large]:[height:12px] [&.large]:[animation-delay:20ms] motion-reduce:[animation:none]"
+            aria-hidden="true"
+          ></span>
           <button
             type="button"
-            class="callout-message"
+            class="callout-message block [width:max-content] [max-width:min(310px,_calc(100vw_-_32px))] [padding:6px_12px] border-0 [border-radius:999px] [background:var(--platform-color)] [color:#fff] cursor-pointer text-left [transform-origin:bottom_right] [animation:callout-pop_380ms_cubic-bezier(0.22,_1.35,_0.36,_1)_90ms_both] [&>span]:[border-bottom:1px_dashed_#ffffffb3] [&>span]:font-medium motion-reduce:[animation:none]"
             onclick={() => void openLinuxPanel()}
             >on linux? <span>bring chikota to your desktop.</span></button
           >
         </span>{/if}
       <button
         type="button"
-        class="platform-launcher linux-launcher"
+        class="platform-launcher linux-launcher grid [width:40px] [height:40px] place-items-center p-0 border-0 rounded-full bg-transparent [transition:color_160ms_ease,_transform_180ms_var(--panel-ease)] [&_svg]:[width:28px] [&_svg]:[height:28px] [&_svg]:[scale:1] [&:hover]:[transform:translateY(-2px)_scale(1.06)] [&:focus-visible]:[outline:2px_solid_currentColor] [&:focus-visible]:[outline-offset:2px] [color:var(--platform-color)]"
         aria-label="install the linux desktop widget"
         aria-haspopup="dialog"
         aria-controls="linux-widget-panel"
@@ -2000,23 +2337,31 @@
         <UbuntuWidgetLauncher />
       </button>
     </span>
-    <span class="platform-launcher-wrap">
+    <span
+      class="platform-launcher-wrap relative inline-flex [--platform-color:#0b84ff]"
+    >
       {#if detectedPlatform === 'mac' && platformCalloutOpen}<span
-          class="platform-callout mac-callout"
+          class="platform-callout mac-callout absolute [right:0] [bottom:calc(100%_+_2px)] [z-index:2] [color:#fff] [font-family:var(--font-sans)] [font-size:var(--body-font-size)] [line-height:20px] [animation:callout-fade-in_180ms_ease-out_both] motion-reduce:[animation:none]"
           role="status"
         >
-          <span class="callout-dot small" aria-hidden="true"></span>
-          <span class="callout-dot large" aria-hidden="true"></span>
+          <span
+            class="callout-dot small absolute block rounded-full [background:var(--platform-color)] [transform:scale(0)] [animation:callout-dot-in_120ms_ease-out_both] [&.small]:[right:-5px] [&.small]:[bottom:-10px] [&.small]:[width:4px] [&.small]:[height:4px] [&.small]:[animation-delay:70ms] [&.large]:[right:-4px] [&.large]:[bottom:-4px] [&.large]:[width:12px] [&.large]:[height:12px] [&.large]:[animation-delay:20ms] motion-reduce:[animation:none]"
+            aria-hidden="true"
+          ></span>
+          <span
+            class="callout-dot large absolute block rounded-full [background:var(--platform-color)] [transform:scale(0)] [animation:callout-dot-in_120ms_ease-out_both] [&.small]:[right:-5px] [&.small]:[bottom:-10px] [&.small]:[width:4px] [&.small]:[height:4px] [&.small]:[animation-delay:70ms] [&.large]:[right:-4px] [&.large]:[bottom:-4px] [&.large]:[width:12px] [&.large]:[height:12px] [&.large]:[animation-delay:20ms] motion-reduce:[animation:none]"
+            aria-hidden="true"
+          ></span>
           <button
             type="button"
-            class="callout-message"
+            class="callout-message block [width:max-content] [max-width:min(310px,_calc(100vw_-_32px))] [padding:6px_12px] border-0 [border-radius:999px] [background:var(--platform-color)] [color:#fff] cursor-pointer text-left [transform-origin:bottom_right] [animation:callout-pop_380ms_cubic-bezier(0.22,_1.35,_0.36,_1)_90ms_both] [&>span]:[border-bottom:1px_dashed_#ffffffb3] [&>span]:font-medium motion-reduce:[animation:none]"
             onclick={() => void openWidgetPanel()}
             >on a mac? <span>bring chikota to your desktop.</span></button
           >
         </span>{/if}
       <button
         type="button"
-        class="platform-launcher mac-launcher"
+        class="platform-launcher mac-launcher grid [width:40px] [height:40px] place-items-center p-0 border-0 rounded-full bg-transparent [transition:color_160ms_ease,_transform_180ms_var(--panel-ease)] [&_svg]:[width:28px] [&_svg]:[height:28px] [&_svg]:[scale:1] [&:hover]:[transform:translateY(-2px)_scale(1.06)] [&:focus-visible]:[outline:2px_solid_currentColor] [&:focus-visible]:[outline-offset:2px] [color:var(--platform-color)]"
         aria-label="install the mac desktop widget"
         aria-haspopup="dialog"
         aria-controls="widget-panel"
@@ -2032,7 +2377,7 @@
   {#if extensionPanelMounted}<div
       bind:this={extensionPanel}
       id="extension-panel"
-      class="extension-panel t-panel-slide"
+      class="extension-panel t-panel-slide [transform:translateY(var(--panel-translate-y))] opacity-0 [filter:blur(var(--panel-blur))] pointer-events-none [transition:transform_var(--panel-close-dur)_var(--panel-ease),_opacity_var(--panel-close-dur)_var(--panel-ease),_filter_var(--panel-close-dur)_var(--panel-ease)] [will-change:transform,_opacity,_filter] [&[data-open=true]]:[transform:translateY(0)] [&[data-open=true]]:opacity-100 [&[data-open=true]]:[filter:blur(0)] [&[data-open=true]]:[pointer-events:auto] [&[data-open=true]]:[transition:transform_var(--panel-open-dur)_var(--panel-ease),_opacity_var(--panel-open-dur)_var(--panel-ease),_filter_var(--panel-open-dur)_var(--panel-ease)] [--panel-translate-y:calc(-100%_-_20px)] fixed [z-index:45] [top:0] [right:auto] [left:calc(75%_-_56px)] [width:480px] [max-width:calc(100vw_-_20px)] [max-height:100dvh] overflow-y-auto [scrollbar-width:none] [padding:16px] [border:1px_solid_var(--border)] [border-top:0] [border-radius:10px] [border-top-left-radius:0] [border-top-right-radius:0] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] outline-none [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&::-webkit-scrollbar]:hidden [&_h2]:m-0 [&_h2]:[font-size:32px] [&_h2]:[line-height:1.15] [&_.extension-demo]:[margin-bottom:18px] [&_.extension-demo]:[padding:12px] [&_.setup-steps]:[margin-block:0_16px] [&_.setup-steps]:[font-size:var(--modal-body-font-size)] [&_.settings-note]:[margin:0_0_16px] [&_.download-extension]:[min-height:32px] max-[1716px]:[right:0] max-[1716px]:[left:auto] max-[1716px]:[width:min(480px,_100vw)] motion-reduce:[transition:none!important]"
       data-open={extensionPanelOpen}
       role="dialog"
       aria-modal="false"
@@ -2042,23 +2387,31 @@
         if (event.key === 'Escape') closeExtensionPanel();
       }}
     >
-      <div class="extension-panel-heading">
+      <div
+        class="extension-panel-heading flex items-center [gap:var(--icon-text-gap)] [margin-bottom:18px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [&_button]:[margin-left:auto]"
+      >
         <BrowserExtension size={18} /><span>browser extension</span><button
-          class="icon-button small"
+          class="icon-button small inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
           aria-label="close browser extension panel"
           onclick={closeExtensionPanel}><Cross2 size={14} /></button
         >
       </div>
       <h2 id="extension-panel-title">keep it in one click.</h2>
-      <p class="dialog-description">
+      <p
+        class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+      >
         a small extension for the things you find along the way.
       </p>
-      <div class="extension-demo">
+      <div
+        class="extension-demo [background:var(--sidebar)] [border:1px_solid_var(--border)] [border-radius:10px] [padding:18px] [margin-bottom:24px] [&>span]:[font-size:var(--modal-body-font-size)] [&>span]:[color:var(--muted-foreground)] [&>span]:block [&>span]:[margin-bottom:12px] [&>div]:[font-size:var(--modal-body-font-size)] [&>div]:flex [&>div]:[gap:var(--icon-text-gap)] [&>div]:items-center [&>div]:[padding:10px] [&>div:nth-child(2)]:[background:var(--accent-soft)] [&>div:nth-child(2)]:[border-radius:5px] [&>div:nth-child(2)]:[color:var(--accent-text)]"
+      >
         <span>right-click on a website or link</span>
         <div><BookmarkIcon />save to chikota</div>
         <div><ArrowUpRight />open chikota</div>
       </div>
-      <ol class="setup-steps">
+      <ol
+        class="setup-steps [font-size:var(--modal-body-font-size)] [line-height:1.8] [padding-left:18px] [list-style:decimal] [&_li]:[margin-bottom:10px] [&_li]:[padding-left:5px] [&_strong]:[overflow-wrap:anywhere] [&_strong]:[font-weight:550]"
+      >
         <li>download and unzip the extension.</li>
         <li>
           open chrome or edge’s extensions page, enable developer mode, then
@@ -2073,12 +2426,14 @@
           >.
         </li>
       </ol>
-      <p class="settings-note">
+      <p
+        class="settings-note [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)] [margin:18px_0_12px]"
+      >
         works on ordinary websites in chrome and edge. browser-protected pages
         and native apps do not expose these menus to a web extension.
       </p>
       <a
-        class="primary-button download-extension"
+        class="primary-button download-extension inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] w-full [margin-top:5px] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
         href="/chikota-extension.zip"
         download><Download />download extension</a
       >
@@ -2087,7 +2442,7 @@
   {#if widgetPanelMounted}<div
       bind:this={widgetPanel}
       id="widget-panel"
-      class="extension-panel desktop-widget-panel widget-panel t-panel-slide"
+      class="extension-panel desktop-widget-panel widget-panel t-panel-slide [transform:translateY(var(--panel-translate-y))] opacity-0 [filter:blur(var(--panel-blur))] pointer-events-none [transition:transform_var(--panel-close-dur)_var(--panel-ease),_opacity_var(--panel-close-dur)_var(--panel-ease),_filter_var(--panel-close-dur)_var(--panel-ease)] [will-change:transform,_opacity,_filter] [&[data-open=true]]:[transform:translateY(0)] [&[data-open=true]]:opacity-100 [&[data-open=true]]:[filter:blur(0)] [&[data-open=true]]:[pointer-events:auto] [&[data-open=true]]:[transition:transform_var(--panel-open-dur)_var(--panel-ease),_opacity_var(--panel-open-dur)_var(--panel-ease),_filter_var(--panel-open-dur)_var(--panel-ease)] [--panel-translate-y:calc(-100%_-_20px)] fixed [z-index:45] [top:0] [right:auto] [left:calc(75%_-_56px)] [width:480px] [max-width:calc(100vw_-_20px)] [max-height:100dvh] overflow-y-auto [scrollbar-width:none] [padding:16px] [border:1px_solid_var(--border)] [border-top:0] [border-radius:10px] [border-top-left-radius:0] [border-top-right-radius:0] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] outline-none [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&::-webkit-scrollbar]:hidden [--panel-translate-y:calc(100%_+_20px)] [top:auto] [bottom:0] [border-top:1px_solid_var(--border)] [border-bottom:0] [border-radius:10px_10px_0_0] [&_h2]:m-0 [&_h2]:[font-size:32px] [&_h2]:[line-height:1.15] [&_.extension-demo]:[margin-bottom:18px] [&_.extension-demo]:[padding:12px] [&_.setup-steps]:[margin-block:0_16px] [&_.setup-steps]:[font-size:var(--modal-body-font-size)] [&_.settings-note]:[margin:0_0_16px] [&_.download-extension]:[min-height:32px] [&>p]:[margin:8px_0_12px] [&>p]:[color:var(--muted-foreground)] [&>p]:[font-size:var(--modal-body-font-size)] [&>p]:[line-height:1.6] [&>.widget-setup-note]:[margin-top:0] [&>.widget-setup-note]:[padding:8px] [&>.widget-setup-note]:[border:1px_solid_var(--border)] [&>.widget-setup-note]:[color:var(--foreground)] [&>button]:w-full [&>small]:block [&>small]:[margin-top:7px] [&>small]:[color:var(--muted-foreground)] [&>small]:[font-size:var(--secondary-text-font-size)] max-[1716px]:[right:0] max-[1716px]:[left:auto] max-[1716px]:[width:min(480px,_100vw)] motion-reduce:[transition:none!important]"
       data-open={widgetPanelOpen}
       role="dialog"
       aria-modal="false"
@@ -2097,19 +2452,25 @@
         if (event.key === 'Escape') closeWidgetPanel();
       }}
     >
-      <div class="extension-panel-heading">
-        <GuideLauncher size={18} /><span>mac desktop widget</span><button
-          class="icon-button small"
+      <div
+        class="extension-panel-heading flex items-center [gap:var(--icon-text-gap)] [margin-bottom:18px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [&_button]:[margin-left:auto]"
+      >
+        <MacWidgetLauncher size={18} /><span>mac desktop widget</span><button
+          class="icon-button small inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
           aria-label="close mac desktop widget panel"
           onclick={closeWidgetPanel}><Cross2 size={14} /></button
         >
       </div>
       <h2 id="widget-panel-title">keep it close to home.</h2>
-      <p class="dialog-description">
+      <p
+        class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+      >
         reminders, pinned links, and recent opens stay available from your
         desktop, including while offline.
       </p>
-      <ol class="widget-setup-steps">
+      <ol
+        class="widget-setup-steps [margin:0_0_12px] [padding-left:18px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&_li+li]:[margin-top:6px] [&_strong]:[color:var(--foreground)] [&_strong]:[font-weight:550]"
+      >
         <li>
           run the <strong>Chikota</strong> macOS app from the included Xcode project.
         </li>
@@ -2128,7 +2489,7 @@
       </p>
       {#if data.session}
         {#if widgetToken}<button
-            class="widget-token"
+            class="widget-token flex items-center [gap:8px] [padding:9px] [border:1px_solid_var(--border)] [border-radius:6px] [background:var(--sidebar)] [color:var(--foreground)] text-left [&_code]:min-w-0 [&_code]:overflow-hidden [&_code]:flex-1 [&_code]:[font-size:var(--modal-body-font-size)] [&_code]:text-ellipsis [&_code]:whitespace-nowrap"
             aria-label={copiedTargets.includes('widget-token')
               ? 'mac connection code copied'
               : 'copy mac connection code'}
@@ -2137,19 +2498,25 @@
               copied={copiedTargets.includes('widget-token')}
               size={14}
             /></button
-          ><small class="widget-token-note"
+          ><small
+            class="widget-token-note block [margin-top:7px] [color:var(--muted-foreground)] [font-size:var(--secondary-text-font-size)]"
             >shown once. paste this code into the mac app.</small
           >{:else}<button
-            class="secondary-button widget-connect-action"
+            class="secondary-button widget-connect-action inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] w-full motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
             disabled={widgetTokenBusy}
             onclick={createWidgetToken}
             >{widgetTokenBusy
               ? 'creating…'
               : 'create mac connection code'}</button
           >{/if}
-        <p class="form-error" role="alert">{widgetTokenError}</p>
+        <p
+          class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+          role="alert"
+        >
+          {widgetTokenError}
+        </p>
       {:else}<button
-          class="secondary-button widget-connect-action"
+          class="secondary-button widget-connect-action inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] w-full motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
           onclick={() => authClient.signIn.social({ provider: 'google' })}
           >sign in to connect the widget</button
         >
@@ -2159,7 +2526,7 @@
   {#if linuxPanelMounted}<div
       bind:this={linuxPanel}
       id="linux-widget-panel"
-      class="extension-panel desktop-widget-panel widget-panel t-panel-slide"
+      class="extension-panel desktop-widget-panel widget-panel t-panel-slide [transform:translateY(var(--panel-translate-y))] opacity-0 [filter:blur(var(--panel-blur))] pointer-events-none [transition:transform_var(--panel-close-dur)_var(--panel-ease),_opacity_var(--panel-close-dur)_var(--panel-ease),_filter_var(--panel-close-dur)_var(--panel-ease)] [will-change:transform,_opacity,_filter] [&[data-open=true]]:[transform:translateY(0)] [&[data-open=true]]:opacity-100 [&[data-open=true]]:[filter:blur(0)] [&[data-open=true]]:[pointer-events:auto] [&[data-open=true]]:[transition:transform_var(--panel-open-dur)_var(--panel-ease),_opacity_var(--panel-open-dur)_var(--panel-ease),_filter_var(--panel-open-dur)_var(--panel-ease)] [--panel-translate-y:calc(-100%_-_20px)] fixed [z-index:45] [top:0] [right:auto] [left:calc(75%_-_56px)] [width:480px] [max-width:calc(100vw_-_20px)] [max-height:100dvh] overflow-y-auto [scrollbar-width:none] [padding:16px] [border:1px_solid_var(--border)] [border-top:0] [border-radius:10px] [border-top-left-radius:0] [border-top-right-radius:0] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] outline-none [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&::-webkit-scrollbar]:hidden [--panel-translate-y:calc(100%_+_20px)] [top:auto] [bottom:0] [border-top:1px_solid_var(--border)] [border-bottom:0] [border-radius:10px_10px_0_0] [&_h2]:m-0 [&_h2]:[font-size:32px] [&_h2]:[line-height:1.15] [&_.extension-demo]:[margin-bottom:18px] [&_.extension-demo]:[padding:12px] [&_.setup-steps]:[margin-block:0_16px] [&_.setup-steps]:[font-size:var(--modal-body-font-size)] [&_.settings-note]:[margin:0_0_16px] [&_.download-extension]:[min-height:32px] [&>p]:[margin:8px_0_12px] [&>p]:[color:var(--muted-foreground)] [&>p]:[font-size:var(--modal-body-font-size)] [&>p]:[line-height:1.6] [&>.widget-setup-note]:[margin-top:0] [&>.widget-setup-note]:[padding:8px] [&>.widget-setup-note]:[border:1px_solid_var(--border)] [&>.widget-setup-note]:[color:var(--foreground)] [&>button]:w-full [&>small]:block [&>small]:[margin-top:7px] [&>small]:[color:var(--muted-foreground)] [&>small]:[font-size:var(--secondary-text-font-size)] max-[1716px]:[right:0] max-[1716px]:[left:auto] max-[1716px]:[width:min(480px,_100vw)] motion-reduce:[transition:none!important]"
       data-open={linuxPanelOpen}
       role="dialog"
       aria-modal="false"
@@ -2169,20 +2536,26 @@
         if (event.key === 'Escape') closeLinuxPanel();
       }}
     >
-      <div class="extension-panel-heading">
+      <div
+        class="extension-panel-heading flex items-center [gap:var(--icon-text-gap)] [margin-bottom:18px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [&_button]:[margin-left:auto]"
+      >
         <UbuntuWidgetLauncher size={18} /><span>linux desktop widget</span
         ><button
-          class="icon-button small"
+          class="icon-button small inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
           aria-label="close linux desktop widget panel"
           onclick={closeLinuxPanel}><Cross2 size={14} /></button
         >
       </div>
       <h2 id="linux-widget-panel-title">keep it close on linux.</h2>
-      <p class="dialog-description">
+      <p
+        class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+      >
         a lightweight desktop companion for pinned links, reminders, and recent
         opens—with an offline cache for when the network disappears.
       </p>
-      <ol class="widget-setup-steps">
+      <ol
+        class="widget-setup-steps [margin:0_0_12px] [padding-left:18px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&_li+li]:[margin-top:6px] [&_strong]:[color:var(--foreground)] [&_strong]:[font-weight:550]"
+      >
         <li>download and unzip the Linux widget.</li>
         <li>
           install Python 3 and Tkinter, then run
@@ -2194,13 +2567,13 @@
         </li>
       </ol>
       <a
-        class="primary-button download-extension"
+        class="primary-button download-extension inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] w-full [margin-top:5px] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
         href="/chikota-linux-widget.zip"
         download><Download />download linux widget</a
       >
       {#if data.session}
         {#if widgetToken}<button
-            class="widget-token linux-widget-token"
+            class="widget-token linux-widget-token [margin-top:14px] flex items-center [gap:8px] [padding:9px] [border:1px_solid_var(--border)] [border-radius:6px] [background:var(--sidebar)] [color:var(--foreground)] text-left [&_code]:min-w-0 [&_code]:overflow-hidden [&_code]:flex-1 [&_code]:[font-size:var(--modal-body-font-size)] [&_code]:text-ellipsis [&_code]:whitespace-nowrap"
             aria-label={copiedTargets.includes('widget-token')
               ? 'connection code copied'
               : 'copy connection code'}
@@ -2209,17 +2582,23 @@
               copied={copiedTargets.includes('widget-token')}
               size={14}
             /></button
-          ><small class="widget-token-note"
+          ><small
+            class="widget-token-note block [margin-top:7px] [color:var(--muted-foreground)] [font-size:var(--secondary-text-font-size)]"
             >shown once. paste this code into the linux widget.</small
           >{:else}<button
-            class="secondary-button widget-connect-action linux-connect-action"
+            class="secondary-button widget-connect-action linux-connect-action inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] [margin-top:14px] w-full motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
             disabled={widgetTokenBusy}
             onclick={createWidgetToken}
             >{widgetTokenBusy ? 'creating…' : 'create connection code'}</button
           >{/if}
-        <p class="form-error" role="alert">{widgetTokenError}</p>
+        <p
+          class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+          role="alert"
+        >
+          {widgetTokenError}
+        </p>
       {:else}<button
-          class="secondary-button widget-connect-action linux-connect-action"
+          class="secondary-button widget-connect-action linux-connect-action inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] [margin-top:14px] w-full motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
           onclick={() => authClient.signIn.social({ provider: 'google' })}
           >sign in to connect the widget</button
         >
@@ -2228,7 +2607,7 @@
 
   {#if remindersPanelMounted}<div
       bind:this={remindersPanel}
-      class="extension-panel reminders-panel t-panel-slide"
+      class="extension-panel reminders-panel t-panel-slide [transform:translateY(var(--panel-translate-y))] opacity-0 [filter:blur(var(--panel-blur))] pointer-events-none [transition:transform_var(--panel-close-dur)_var(--panel-ease),_opacity_var(--panel-close-dur)_var(--panel-ease),_filter_var(--panel-close-dur)_var(--panel-ease)] [will-change:transform,_opacity,_filter] [&[data-open=true]]:[transform:translateY(0)] [&[data-open=true]]:opacity-100 [&[data-open=true]]:[filter:blur(0)] [&[data-open=true]]:[pointer-events:auto] [&[data-open=true]]:[transition:transform_var(--panel-open-dur)_var(--panel-ease),_opacity_var(--panel-open-dur)_var(--panel-ease),_filter_var(--panel-open-dur)_var(--panel-ease)] [--panel-translate-y:calc(-100%_-_20px)] fixed [z-index:45] [top:0] [right:auto] [left:calc(75%_-_56px)] [width:480px] [max-width:calc(100vw_-_20px)] [max-height:100dvh] overflow-y-auto [scrollbar-width:none] [padding:16px] [border:1px_solid_var(--border)] [border-top:0] [border-radius:10px] [border-top-left-radius:0] [border-top-right-radius:0] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] outline-none [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&::-webkit-scrollbar]:hidden [&_h2]:m-0 [&_h2]:[font-size:32px] [&_h2]:[line-height:1.15] [&_.extension-demo]:[margin-bottom:18px] [&_.extension-demo]:[padding:12px] [&_.setup-steps]:[margin-block:0_16px] [&_.setup-steps]:[font-size:var(--modal-body-font-size)] [&_.settings-note]:[margin:0_0_16px] [&_.download-extension]:[min-height:32px] [overflow-x:hidden] max-[1716px]:[right:0] max-[1716px]:[left:auto] max-[1716px]:[width:min(480px,_100vw)] motion-reduce:[transition:none!important]"
       data-open={remindersPanelOpen}
       role="dialog"
       aria-modal="false"
@@ -2238,76 +2617,105 @@
         if (event.key === 'Escape') closeRemindersPanel();
       }}
     >
-      <div class="extension-panel-heading">
+      <div
+        class="extension-panel-heading flex items-center [gap:var(--icon-text-gap)] [margin-bottom:18px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [&_button]:[margin-left:auto]"
+      >
         <ActionBell size={18} /><span>reminders</span><button
-          class="icon-button small"
+          class="icon-button small inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
           aria-label="close reminders panel"
           onclick={closeRemindersPanel}><Cross2 size={14} /></button
         >
       </div>
       <h2 id="reminders-panel-title">reminders</h2>
-      <p class="dialog-description">
+      <p
+        class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+      >
         upcoming, completed, and canceled reminders in one place.
       </p>
       {#if reminderBookmarks.length}<div
-          class="reminder-table"
+          class="reminder-table [margin-top:16px] [border-top:1px_solid_var(--border)] [font-variant-numeric:tabular-nums] [&_tr:last-child]:[border-bottom:none] [&_tbody_tr:last-child]:[border-bottom:none]"
           role="table"
           aria-label="bookmark reminders"
         >
-          <div class="reminder-table-head" role="row">
+          <div
+            class="reminder-table-head grid [grid-template-columns:minmax(0,_1fr)_104px_96px_56px_24px] items-center [column-gap:8px] [min-height:30px] [background:var(--secondary)] [color:var(--muted-foreground)] [font-size:10px] [text-transform:uppercase] [letter-spacing:0.04em] [&>span]:min-w-0 [&>span]:overflow-hidden [&>span]:text-ellipsis [&>span]:whitespace-nowrap"
+            role="row"
+          >
             <span role="columnheader">bookmark</span>
             <span role="columnheader">scheduled</span>
             <span role="columnheader">delivery</span>
             <span role="columnheader">status</span>
-            <span role="columnheader" class="sr-only">actions</span>
-          </div>
-          {#each reminderBookmarks as bookmark}{@const status =
-              reminderStatus(bookmark)}
-            <div
-              class:done={status === 'done'}
-              class:canceled={status === 'canceled'}
-              class="reminder-table-row"
-              role="row"
+            <span
+              role="columnheader"
+              class="sr-only absolute [width:1px] [height:1px] p-0 [margin:-1px] overflow-hidden [clip:rect(0,_0,_0,_0)] whitespace-nowrap border-0"
+              >actions</span
             >
-              <div class="reminder-bookmark-cell" role="cell">
-                <span class="reminder-favicon"
-                  >{domain(bookmark.url).slice(0, 1).toUpperCase()}<img
-                    src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(bookmark.url)}&sz=32`}
-                    alt=""
-                    onerror={(event) => event.currentTarget.remove()}
-                  /></span
+          </div>
+          <div
+            class="reminder-table-body [&>.reminder-table-row:last-child]:[border-bottom:none]"
+            role="rowgroup"
+          >
+            {#each reminderBookmarks as bookmark}{@const status =
+                reminderStatus(bookmark)}
+              <div
+                class:done={status === 'done'}
+                class:canceled={status === 'canceled'}
+                class="reminder-table-row grid [grid-template-columns:minmax(0,_1fr)_104px_96px_56px_24px] items-center [column-gap:8px] [min-height:54px] [border-top:1px_solid_var(--border)] [transition:opacity_160ms_ease] [&:last-child]:[border-bottom:none] [&_.reminder-favicon]:[width:24px] [&_.reminder-favicon]:[height:24px] [&_.reminder-favicon]:[flex-basis:24px] [&_.reminder-favicon]:[font-size:10px] [&_.reminder-favicon_img]:[inset:4px] [&_.reminder-favicon_img]:[width:16px] [&_.reminder-favicon_img]:[height:16px] [&.done]:[opacity:0.32] [&.canceled]:[opacity:0.32] [&.done_strong]:[text-decoration:line-through] [&.done_strong]:[text-decoration-thickness:1px] [&.canceled_strong]:[text-decoration:line-through] [&.canceled_strong]:[text-decoration-thickness:1px] motion-reduce:transition-none"
+                role="row"
+              >
+                <div
+                  class="reminder-bookmark-cell min-w-0 flex items-center [gap:8px] [&>span:last-child]:min-w-0 [&_strong]:block [&_strong]:min-w-0 [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&_small]:block [&_small]:min-w-0 [&_small]:overflow-hidden [&_small]:text-ellipsis [&_small]:whitespace-nowrap [&_strong]:[font-size:var(--modal-body-font-size)] [&_strong]:[font-weight:550] [&_small]:[margin-top:1px] [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)]"
+                  role="cell"
+                >
+                  <span
+                    class="reminder-favicon relative grid place-items-center [width:28px] [height:28px] [flex:0_0_28px] overflow-hidden [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&_img]:absolute [&_img]:[inset:5px] [&_img]:[width:18px] [&_img]:[height:18px] [&_img]:object-contain"
+                    >{domain(bookmark.url).slice(0, 1).toUpperCase()}<img
+                      src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(bookmark.url)}&sz=32`}
+                      alt=""
+                      onerror={(event) => event.currentTarget.remove()}
+                    /></span
+                  >
+                  <span
+                    ><strong title={bookmark.title}>{bookmark.title}</strong
+                    ><small title={domain(bookmark.url)}
+                      >{domain(bookmark.url)}</small
+                    ></span
+                  >
+                </div>
+                <span
+                  class="reminder-table-cell min-w-0 overflow-hidden text-ellipsis whitespace-nowrap [color:var(--muted-foreground)] [font-size:var(--secondary-text-font-size)] [&.reminder-status]:[margin-left:0] [&.reminder-status]:[color:var(--foreground)]"
+                  role="cell"
+                  title={formatReminder(bookmark.reminderAt!)}
+                  >{formatReminder(bookmark.reminderAt!)}</span
                 >
                 <span
-                  ><strong title={bookmark.title}>{bookmark.title}</strong
-                  ><small title={domain(bookmark.url)}
-                    >{domain(bookmark.url)}</small
-                  ></span
+                  class="reminder-table-cell min-w-0 overflow-hidden text-ellipsis whitespace-nowrap [color:var(--muted-foreground)] [font-size:var(--secondary-text-font-size)] [&.reminder-status]:[margin-left:0] [&.reminder-status]:[color:var(--foreground)]"
+                  role="cell"
                 >
-              </div>
-              <span
-                class="reminder-table-cell"
-                role="cell"
-                title={formatReminder(bookmark.reminderAt!)}
-                >{formatReminder(bookmark.reminderAt!)}</span
-              >
-              <span class="reminder-table-cell" role="cell">
-                {bookmark.reminderEmail ? 'email' : 'browser + sound'}
-              </span>
-              <span class="reminder-table-cell reminder-status" role="cell"
-                >{status}</span
-              >
-              <span class="reminder-table-action" role="cell">
-                {#if status === 'active'}<button
-                    class="icon-button small"
-                    aria-label={`cancel reminder for ${bookmark.title}`}
-                    title="cancel reminder"
-                    onclick={() => cancelReminder(bookmark)}
-                    ><BellOff size={14} /></button
-                  >{/if}
-              </span>
-            </div>{/each}
+                  {bookmark.reminderEmail ? 'email' : 'browser + sound'}
+                </span>
+                <span
+                  class="reminder-table-cell reminder-status [margin-left:3px] lowercase min-w-0 overflow-hidden text-ellipsis whitespace-nowrap [color:var(--muted-foreground)] [font-size:var(--secondary-text-font-size)] [&.reminder-status]:[margin-left:0] [&.reminder-status]:[color:var(--foreground)]"
+                  role="cell">{status}</span
+                >
+                <span
+                  class="reminder-table-action [min-width:24px] grid place-items-center"
+                  role="cell"
+                >
+                  {#if status === 'active'}<button
+                      class="icon-button small inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
+                      aria-label={`cancel reminder for ${bookmark.title}`}
+                      title="cancel reminder"
+                      onclick={() => cancelReminder(bookmark)}
+                      ><BellOff size={14} /></button
+                    >{/if}
+                </span>
+              </div>{/each}
+          </div>
         </div>
-      {:else}<div class="notification-empty">
+      {:else}<div
+          class="notification-empty [min-height:170px] grid place-items-center [align-content:center] [gap:8px] [color:var(--muted-foreground)] text-center [&_strong]:[color:var(--foreground)] [&_strong]:[font-size:var(--modal-body-font-size)] [&_strong]:font-medium [&_p]:m-0 [&_p]:[font-size:var(--secondary-text-font-size)]"
+        >
           <ActionBell />
           <strong>no reminders yet.</strong>
           <p>use the bell on a bookmark to bring it back later.</p>
@@ -2315,7 +2723,7 @@
     </div>{/if}
 
   {#if selectedCollections.length}<div
-      class="selection-toolbar"
+      class="selection-toolbar fixed [z-index:30] [left:50%] [bottom:30px] [transform:translateX(-50%)] [border:1px_solid_var(--border)] [border-radius:12px] [padding:8px_12px] flex items-center [gap:5px] [background:var(--card)] [box-shadow:var(--shadow)] whitespace-nowrap [&>span]:flex [&>span]:[gap:var(--icon-text-gap)] [&>span]:items-center [&>span]:[font-size:var(--body-font-size)] [&>span]:[padding:0_14px_0_4px] [&>span]:[color:var(--accent-text)] [&>span]:[border-right:1px_solid_var(--border)] [&>span]:[margin-right:5px] [&_button]:inline-flex [&_button]:items-center [&_button]:[gap:var(--icon-text-gap)] [&_button]:bg-none [&_button]:border-0 [&_button]:[padding:8px] [&_button]:[border-radius:5px] [&_button]:[font-size:var(--body-font-size)] [&_button:hover]:[background:var(--secondary)] [&.bookmark-selection-toolbar]:[gap:2px] [&.bookmark-selection-toolbar]:[padding:5px] [&.bookmark-selection-toolbar]:[border-radius:999px] [&.bookmark-selection-toolbar>span]:m-0 [&.bookmark-selection-toolbar>span]:[padding:0_8px] [&.bookmark-selection-toolbar>span]:border-0 [&.bookmark-selection-toolbar>span]:[color:var(--foreground)] [&.bookmark-selection-toolbar>span]:[font-weight:600] [&.bookmark-selection-toolbar_button]:grid [&.bookmark-selection-toolbar_button]:place-items-center [&.bookmark-selection-toolbar_button]:[width:30px] [&.bookmark-selection-toolbar_button]:[height:30px] [&.bookmark-selection-toolbar_button]:p-0 [&.bookmark-selection-toolbar_button]:rounded-full [&.bookmark-selection-toolbar_button_svg]:[width:16px] [&.bookmark-selection-toolbar_button_svg]:[height:16px] max-[520px]:[bottom:16px] max-[520px]:[padding:6px] max-[520px]:[gap:0] max-[520px]:[max-width:calc(100vw_-_18px)] max-[520px]:[&>span]:[font-size:var(--body-font-size)] max-[520px]:[&>span]:[padding-right:7px] max-[520px]:[&_button]:[font-size:var(--body-font-size)] max-[520px]:[&_button]:[padding:7px] motion-safe:[transform-origin:center_bottom] motion-safe:[animation:selection-dock-in_360ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[will-change:transform,_opacity] motion-reduce:[animation:none]"
       role="region"
       aria-label="collection selection actions"
     >
@@ -2330,13 +2738,35 @@
         }}><Cross2 /></button
       >
     </div>{:else if selected.length}<div
-      class="selection-toolbar bookmark-selection-toolbar"
+      class="selection-toolbar bookmark-selection-toolbar fixed [z-index:30] [left:50%] [bottom:30px] [transform:translateX(-50%)] [border:1px_solid_var(--border)] [border-radius:12px] [padding:8px_12px] flex items-center [gap:5px] [background:var(--card)] [box-shadow:var(--shadow)] whitespace-nowrap [&>span]:flex [&>span]:[gap:var(--icon-text-gap)] [&>span]:items-center [&>span]:[font-size:var(--body-font-size)] [&>span]:[padding:0_14px_0_4px] [&>span]:[color:var(--accent-text)] [&>span]:[border-right:1px_solid_var(--border)] [&>span]:[margin-right:5px] [&_button]:inline-flex [&_button]:items-center [&_button]:[gap:var(--icon-text-gap)] [&_button]:bg-none [&_button]:border-0 [&_button]:[padding:8px] [&_button]:[border-radius:5px] [&_button]:[font-size:var(--body-font-size)] [&_button:hover]:[background:var(--secondary)] [&.bookmark-selection-toolbar]:[gap:2px] [&.bookmark-selection-toolbar]:[padding:5px] [&.bookmark-selection-toolbar]:[border-radius:999px] [&.bookmark-selection-toolbar>span]:m-0 [&.bookmark-selection-toolbar>span]:[padding:0_8px] [&.bookmark-selection-toolbar>span]:border-0 [&.bookmark-selection-toolbar>span]:[color:var(--foreground)] [&.bookmark-selection-toolbar>span]:[font-weight:600] [&.bookmark-selection-toolbar_button]:grid [&.bookmark-selection-toolbar_button]:place-items-center [&.bookmark-selection-toolbar_button]:[width:30px] [&.bookmark-selection-toolbar_button]:[height:30px] [&.bookmark-selection-toolbar_button]:p-0 [&.bookmark-selection-toolbar_button]:rounded-full [&.bookmark-selection-toolbar_button_svg]:[width:16px] [&.bookmark-selection-toolbar_button_svg]:[height:16px] max-[520px]:[bottom:16px] max-[520px]:[padding:6px] max-[520px]:[gap:0] max-[520px]:[max-width:calc(100vw_-_18px)] max-[520px]:[&>span]:[font-size:var(--body-font-size)] max-[520px]:[&>span]:[padding-right:7px] max-[520px]:[&_button]:[font-size:var(--body-font-size)] max-[520px]:[&_button]:[padding:7px] motion-safe:[transform-origin:center_bottom] motion-safe:[animation:selection-dock-in_360ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[will-change:transform,_opacity] motion-reduce:[animation:none]"
       role="region"
       aria-label="selection actions"
+      onmouseleave={() => hideSelectionTooltip()}
+      onfocusout={hideSelectionTooltip}
     >
+      <div
+        class="pointer-events-none absolute bottom-[calc(100%+10px)] left-0 [z-index:1] [&.tracking]:[will-change:transform] motion-safe:[&.tracking]:[transition:transform_160ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
+        class:tracking={selectionTooltip.visible}
+        style:transform={`translateX(${selectionTooltip.x}px)`}
+      >
+        <div
+          id="selection-dock-tooltip"
+          role="tooltip"
+          aria-hidden={!selectionTooltip.visible}
+          class="relative -translate-x-1/2 translate-y-2 scale-x-[0.82] scale-y-[0.9] rounded-lg border border-border bg-card px-3 py-2 text-[12px] leading-none text-foreground opacity-0 shadow-(--shadow) [transform-origin:center_bottom] motion-safe:[transition:transform_160ms_cubic-bezier(0.22,_1,_0.36,_1),_opacity_120ms_ease-out] motion-reduce:transition-none [&.visible]:-translate-x-1/2 [&.visible]:translate-y-0 [&.visible]:scale-100 [&.visible]:opacity-100"
+          class:visible={selectionTooltip.visible}
+        >
+          <span
+            class="absolute left-1/2 top-[calc(100%-1px)] -z-1 h-3 w-3 -translate-x-1/2 scale-x-75 scale-y-150 rounded-b-[70%] border-x border-b border-border bg-card [transform-origin:center_top] motion-safe:[transition:transform_160ms_cubic-bezier(0.22,_1,_0.36,_1)] motion-reduce:transition-none [&.visible]:-translate-x-1/2 [&.visible]:scale-x-100 [&.visible]:scale-y-100"
+            class:visible={selectionTooltip.visible}
+            aria-hidden="true"
+          ></span>{selectionTooltip.label}
+        </div>
+      </div>
       <button
         aria-label="clear selection"
-        title="clear selection"
+        onmouseenter={(event) => showSelectionTooltip(event, 'clear selection')}
+        onfocus={(event) => showSelectionTooltip(event, 'clear selection')}
         onclick={() => {
           selected = [];
           selectMode = false;
@@ -2344,14 +2774,18 @@
         }}><Cross2 /></button
       ><span>{selected.length} selected</span><button
         aria-label="select all bookmarks"
-        title="select all"
+        onmouseenter={(event) => showSelectionTooltip(event, 'select all')}
+        onfocus={(event) => showSelectionTooltip(event, 'select all')}
         onclick={() => (selected = visible.map((b) => b.id))}
         ><SelectAll /></button
       ><button
         aria-label={selectionPinned
           ? 'unpin selected bookmarks'
           : 'pin selected bookmarks'}
-        title={selectionPinned ? 'unpin' : 'pin'}
+        onmouseenter={(event) =>
+          showSelectionTooltip(event, selectionPinned ? 'unpin' : 'pin')}
+        onfocus={(event) =>
+          showSelectionTooltip(event, selectionPinned ? 'unpin' : 'pin')}
         onclick={() => {
           setFlags(selected, 'pinned', !selectionPinned);
           selected = [];
@@ -2360,7 +2794,8 @@
         }}><Pin /></button
       ><button
         aria-label="mark selected bookmarks as read"
-        title="mark as read"
+        onmouseenter={(event) => showSelectionTooltip(event, 'mark as read')}
+        onfocus={(event) => showSelectionTooltip(event, 'mark as read')}
         onclick={() => {
           setFlags(selected, 'read', true);
           selected = [];
@@ -2369,12 +2804,13 @@
         }}><ActionRead /></button
       ><button
         aria-label="delete selected bookmarks"
-        title="delete"
+        onmouseenter={(event) => showSelectionTooltip(event, 'delete')}
+        onfocus={(event) => showSelectionTooltip(event, 'delete')}
         onclick={() => openModal('delete')}><DeleteTrash /></button
       >
     </div>{/if}
   {#if drag && dragging}<div
-      class="selection-marquee"
+      class="selection-marquee fixed [border:1px_solid_var(--accent-text)] [background:color-mix(in_srgb,_var(--accent-text)_12%,_transparent)] pointer-events-none [z-index:20]"
       style:left={`${Math.min(drag.x, drag.endX)}px`}
       style:top={`${Math.min(drag.y, drag.endY)}px`}
       style:width={`${Math.abs(drag.x - drag.endX)}px`}
@@ -2382,14 +2818,14 @@
     ></div>{/if}
   {#if reminderPopover && reminderTarget}
     <button
-      class="context-backdrop"
+      class="context-backdrop fixed [inset:0] bg-transparent border-0 [z-index:50] [cursor:default]"
       aria-label="close reminder"
       onclick={closeReminderPopover}
       tabindex="-1"
     ></button>
     <div
       bind:this={reminderPopoverPanel}
-      class="reminder-popover"
+      class="reminder-popover fixed [z-index:51] [width:320px] [max-width:calc(100vw_-_20px)] [padding:12px] [border:1px_solid_var(--border)] [border-radius:10px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] [animation:appear_160ms_cubic-bezier(0.22,_1,_0.36,_1)] [&>p]:[margin:6px_0_14px] [&>p]:overflow-hidden [&>p]:[color:var(--muted-foreground)] [&>p]:[font-size:var(--body-font-size)] [&>p]:text-ellipsis [&>p]:whitespace-nowrap motion-reduce:[animation:none]"
       role="dialog"
       tabindex="-1"
       aria-label={`set reminder for ${reminderTarget.title}`}
@@ -2399,16 +2835,21 @@
         if (event.key === 'Escape') closeReminderPopover();
       }}
     >
-      <div class="reminder-popover-title">
+      <div
+        class="reminder-popover-title flex items-center [gap:var(--icon-text-gap)] [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_button]:[margin-left:auto]"
+      >
         <ActionBell size={16} /><strong>set reminder</strong><button
           type="button"
-          class="icon-button small"
+          class="icon-button small inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
           aria-label="close reminder"
           onclick={closeReminderPopover}><Cross2 size={14} /></button
         >
       </div>
       <p>{reminderTarget.title}</p>
-      <form class="reminder-popover-form" onsubmit={saveReminder}>
+      <form
+        class="reminder-popover-form [&_label]:[gap:5px] [&_label]:[margin-bottom:11px] [&_label]:[font-size:var(--body-font-size)] [&_input]:[padding:8px_9px] [&_input]:[border-radius:6px] [&_input]:[font-size:var(--body-font-size)] [&_input:focus]:outline-0 [&_input:focus]:[box-shadow:none] [&_input:focus-visible]:outline-0 [&_input:focus-visible]:[box-shadow:none]"
+        onsubmit={saveReminder}
+      >
         <label
           >date and time<input
             type="datetime-local"
@@ -2424,16 +2865,25 @@
             autocomplete="email"
           /></label
         >
-        <p class="form-error" role="alert">{formError}</p>
-        <div class="reminder-popover-actions">
+        <p
+          class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+          role="alert"
+        >
+          {formError}
+        </p>
+        <div
+          class="reminder-popover-actions flex items-center justify-end [gap:7px] [margin-top:12px] [padding-top:10px] [border-top:1px_solid_var(--border)] [&_.plain-button]:[margin-right:auto] [&_.plain-button]:[font-size:var(--body-font-size)] [&_.primary-button]:[min-height:30px] [&_.primary-button]:[padding:7px_9px] [&_.primary-button]:[font-size:var(--body-font-size)]"
+        >
           {#if reminderTarget.reminderAt && reminderStatus(reminderTarget) === 'active'}<button
               type="button"
-              class="plain-button danger-text"
+              class="plain-button danger-text [&_svg]:block inline-flex items-center [gap:var(--icon-text-gap)] [padding:5px_6px] border-0 [border-radius:5px] bg-transparent [color:var(--foreground)] [font-size:var(--body-font-size)] whitespace-nowrap [&:hover]:[background:var(--secondary)] [&.control-active]:[background:var(--secondary)] [&.control-active]:[color:var(--foreground)] [color:#d15f54] max-[520px]:[padding:6px_4px] max-[520px]:[font-size:var(--body-font-size)]"
               onclick={() => {
                 void cancelReminder(reminderTarget!);
                 closeReminderPopover();
               }}>cancel reminder</button
-            >{/if}<button class="primary-button" disabled={saving}
+            >{/if}<button
+            class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
+            disabled={saving}
             >{saving ? 'saving…' : 'set reminder'}<SaveCloud
               size={14}
             /></button
@@ -2444,18 +2894,14 @@
   {/if}
   {#if context}
     <button
-      class="context-backdrop"
+      class="bookmark-context-backdrop fixed [inset:0] bg-transparent border-0 [z-index:50] [cursor:default]"
       aria-label="close context menu"
       onclick={closeContext}
-      oncontextmenu={(e) => {
-        e.preventDefault();
-        closeContext();
-      }}
       tabindex="-1"
     ></button>
     <div
       bind:this={contextPanel}
-      class="context-menu"
+      class="context-menu fixed [z-index:51] [width:200px] [padding:4px] [border-radius:10px] [background:var(--card)] [box-shadow:var(--shadow)] [border:1px_solid_var(--border)] [animation:appear_160ms_cubic-bezier(0.22,_1,_0.36,_1)] [&_button]:flex [&_button]:items-center [&_button]:[gap:var(--icon-text-gap)] [&_button]:border-0 [&_button]:[border-radius:5px] [&_button]:bg-none [&_button]:w-full [&_button]:[min-height:32px] [&_button]:[padding:5px_7px] [&_button]:text-left [&_button]:[font-size:var(--body-font-size)] [&_button]:[line-height:1.25] [&_button>svg]:block [&_button>svg]:[width:17px] [&_button>svg]:[height:17px] [&_button>span]:min-w-0 [&_kbd]:inline-flex [&_kbd]:items-center [&_kbd]:[gap:3px] [&_kbd]:[margin-left:auto] [&_kbd]:[color:var(--muted-foreground)] [&_kbd]:[font-family:inherit] [&_kbd]:[font-size:10px] [&_kbd]:[line-height:1] [&_kbd_svg]:block [&_button:hover]:[background:var(--secondary)] [&_button:hover]:outline-none [&_button:focus-visible]:[background:var(--secondary)] [&_button:focus-visible]:outline-none [&_hr]:border-0 [&_hr]:[border-top:1px_solid_var(--border)] [&_hr]:[margin:5px_3px] motion-reduce:[animation:none]"
       role="menu"
       tabindex="-1"
       onkeydown={contextKeys}
@@ -2470,13 +2916,15 @@
             window.open(b.url, '_blank', 'noopener,noreferrer');
             closeContext();
           }}
-          ><ArrowUpRight /><span>open bookmark</span><kbd><KeyboardDown />O</kbd
+          ><ArrowUpRight /><span>open bookmark</span><kbd aria-label="cmd+o"
+            ><CommandKey size={10} />O</kbd
           ></button
         ><button
           role="menuitem"
           data-shortcut="e"
           onclick={() => openModal('bookmark', b)}
-          ><ActionEdit /><span>edit bookmark</span><kbd><KeyboardDown />E</kbd
+          ><ActionEdit /><span>edit bookmark</span><kbd aria-label="cmd+e"
+            ><CommandKey size={10} />E</kbd
           ></button
         ><button
           role="menuitem"
@@ -2484,64 +2932,50 @@
           onclick={() => openModal('reminder', b)}
           ><ActionBell /><span
             >{b.reminderAt ? 'edit reminder' : 'set reminder'}</span
-          ><kbd><KeyboardDown />R</kbd></button
+          ><kbd aria-label="cmd+r"><CommandKey size={10} />R</kbd></button
         ><button
           role="menuitem"
           data-shortcut="p"
           onclick={() => toggleFlag(b.id, 'pinned')}
           ><Pin /><span
             >{flags[b.id]?.pinned ? 'unpin bookmark' : 'pin bookmark'}</span
-          ><kbd><KeyboardDown />P</kbd></button
+          ><kbd aria-label="cmd+p"><CommandKey size={10} />P</kbd></button
         ><button
           role="menuitem"
           data-shortcut="m"
           onclick={() => toggleFlag(b.id, 'read')}
           ><ActionRead /><span
             >{flags[b.id]?.read ? 'mark as unread' : 'mark as read'}</span
-          ><kbd><KeyboardDown />M</kbd></button
+          ><kbd aria-label="cmd+m"><CommandKey size={10} />M</kbd></button
         >{#if data.session}<button
             role="menuitem"
             data-shortcut="w"
             onclick={() => void toggleWidgetBookmark(b)}
-            ><GuideLauncher /><span
+            ><MacWidgetLauncher /><span
               >{b.widgetEnabled
                 ? 'remove from mac widget'
                 : 'add to mac widget'}</span
-            ><kbd><KeyboardDown />W</kbd></button
+            ><kbd aria-label="cmd+w"><CommandKey size={10} />W</kbd></button
           >{/if}
         <hr />
         <button
           role="menuitem"
-          class="danger-text"
+          class="danger-text [color:#d15f54]"
           data-shortcut="d"
           onclick={() => {
             selected = [b.id];
             void openModal('delete');
           }}
-          ><DeleteTrash /><span>delete bookmark</span><kbd
-            ><KeyboardDown />D</kbd
+          ><DeleteTrash /><span>delete bookmark</span><kbd aria-label="cmd+d"
+            ><CommandKey size={10} />D</kbd
           ></button
-        >{:else}<button
-          role="menuitem"
-          onclick={() => {
-            navigate('all');
-            closeContext();
-          }}><BookmarkIcon />open chikota</button
-        ><button role="menuitem" onclick={() => openModal('bookmark')}
-          ><Plus />save a link</button
-        ><button role="menuitem" onclick={() => openModal('collection')}
-          ><FileTray />new collection</button
-        >
-        <hr />
-        <button role="menuitem" onclick={() => openModal('settings')}
-          ><ActionSettings />appearance & settings</button
         >{/if}
     </div>
   {/if}
 
   <dialog
     bind:this={dialog}
-    class="app-dialog"
+    class="app-dialog [border:1px_solid_var(--border)] p-0 [width:480px] [max-width:calc(100vw_-_32px)] [max-height:90dvh] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] [margin:auto] overflow-y-auto [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&[open]]:[animation:appear_200ms_cubic-bezier(0.22,_1,_0.36,_1)] [&::backdrop]:[background:#00000065] [&::backdrop]:[backdrop-filter:blur(4px)] [&_input:focus]:outline-0 [&_input:focus]:[border-color:var(--border)] [&_input:focus]:[box-shadow:none] [&_input:focus-visible]:outline-0 [&_input:focus-visible]:[border-color:var(--border)] [&_input:focus-visible]:[box-shadow:none] [&_textarea:focus]:outline-0 [&_textarea:focus]:[border-color:var(--border)] [&_textarea:focus]:[box-shadow:none] [&_textarea:focus-visible]:outline-0 [&_textarea:focus-visible]:[border-color:var(--border)] [&_textarea:focus-visible]:[box-shadow:none] [&_select:focus]:outline-0 [&_select:focus]:[border-color:var(--border)] [&_select:focus]:[box-shadow:none] [&_select:focus-visible]:outline-0 [&_select:focus-visible]:[border-color:var(--border)] [&_select:focus-visible]:[box-shadow:none] [&.settings-dialog]:[width:680px] [&.command-positioned]:fixed [&.command-positioned]:m-0 [&.command-positioned]:[max-width:calc(100vw_-_20px)] [&.command-positioned]:[max-height:min(520px,_calc(100dvh_-_20px))] [&.command-positioned]:[border-radius:8px] [&.command-positioned]:overflow-hidden motion-reduce:[&[open]]:[animation:none]"
     class:command-positioned={modal === 'command'}
     class:settings-dialog={modal === 'settings'}
     style:top={modal === 'command' ? `${commandPosition.top}px` : undefined}
@@ -2556,16 +2990,27 @@
       if (saving) e.preventDefault();
     }}
   >
-    {#if modal}<div class="dialog-inner">
+    {#if modal}<div
+        class="dialog-inner [padding:28px] relative [&_h2]:m-0 [&_h2]:[font-size:34px] [&_h2]:[line-height:1.2] [&_h2]:[letter-spacing:normal] [&_h2]:font-normal [.settings-dialog_&]:p-0 [.command-positioned_&]:p-0 max-[520px]:[padding:27px_22px]"
+      >
         {#if modal !== 'command'}<button
-            class="dialog-close icon-button"
+            class="dialog-close icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] absolute [top:16px] [right:16px] [width:32px] [height:32px] [.settings-dialog_&]:[z-index:2] motion-safe:[transition:background-color_140ms_ease]"
             aria-label="close dialog"
             disabled={saving}
             onclick={closeModal}><Cross2 /></button
           >{/if}
-        {#if modal === 'command'}<div class="command-dialog">
-            <h2 id="dialog-title" class="sr-only">command menu</h2>
-            <div class="command-input">
+        {#if modal === 'command'}<div
+            class="command-dialog [margin:-28px] [.command-positioned_&]:m-0"
+          >
+            <h2
+              id="dialog-title"
+              class="sr-only absolute [width:1px] [height:1px] p-0 [margin:-1px] overflow-hidden [clip:rect(0,_0,_0,_0)] whitespace-nowrap border-0"
+            >
+              command menu
+            </h2>
+            <div
+              class="command-input flex items-center [gap:var(--icon-text-gap)] [height:46px] [padding:0_14px] [border-bottom:1px_solid_var(--border)] [color:var(--muted-foreground)] [&_input]:min-w-0 [&_input]:flex-1 [&_input]:h-full [&_input]:border-0 [&_input]:outline-0 [&_input]:bg-transparent [&_input]:[color:var(--foreground)] [&_input]:[font-size:var(--modal-body-font-size)] [&_input:focus-visible]:outline-0 [&_kbd]:[padding:3px_6px] [&_kbd]:[border:1px_solid_var(--border)] [&_kbd]:[border-radius:4px] [&_kbd]:[font-size:9px]"
+            >
               <SearchGrid size={17} /><input
                 bind:this={searchInput}
                 bind:value={commandQuery}
@@ -2573,11 +3018,14 @@
                 placeholder="search bookmarks or run a command…"
               /><kbd>esc</kbd>
             </div>
-            <div class="command-results">
+            <div
+              class="command-results [max-height:min(430px,_65dvh)] overflow-y-auto [padding:7px] [&>p]:[margin:8px_9px_4px] [&>p]:[color:var(--muted-foreground)] [&>p]:[font-size:9px] [&>p]:[font-weight:550] [&>p]:[letter-spacing:0.08em] [&>p]:lowercase [&>button]:flex [&>button]:items-center [&>button]:[gap:var(--icon-text-gap)] [&>button]:w-full [&>button]:[min-height:38px] [&>button]:[padding:7px_9px] [&>button]:border-0 [&>button]:[border-radius:5px] [&>button]:bg-none [&>button]:[color:var(--foreground)] [&>button]:text-left [&>button]:[font-size:var(--modal-body-font-size)] [&>a]:flex [&>a]:items-center [&>a]:[gap:var(--icon-text-gap)] [&>a]:w-full [&>a]:[min-height:38px] [&>a]:[padding:7px_9px] [&>a]:border-0 [&>a]:[border-radius:5px] [&>a]:bg-none [&>a]:[color:var(--foreground)] [&>a]:text-left [&>a]:[font-size:var(--modal-body-font-size)] [&>button:hover]:outline-0 [&>button:hover]:[background:var(--secondary)] [&>button:focus-visible]:outline-0 [&>button:focus-visible]:[background:var(--secondary)] [&>a:hover]:outline-0 [&>a:hover]:[background:var(--secondary)] [&>a:focus-visible]:outline-0 [&>a:focus-visible]:[background:var(--secondary)] [&>button>span]:[margin-left:auto] [&>button>span]:[color:var(--muted-foreground)] [&>a>svg]:[margin-left:auto] [&>a>svg]:[color:var(--muted-foreground)] [&_.single-shortcut]:inline-flex [&_.single-shortcut]:items-center [&_.single-shortcut]:[gap:var(--icon-text-gap)] [&_strong]:block [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&_strong]:[font-size:var(--modal-body-font-size)] [&_strong]:font-medium [&_strong]:[line-height:1.4] [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)] [&_small]:[line-height:1.4]"
+            >
               <p>actions</p>
               <button onclick={() => openFromCommand('bookmark')}
-                ><Plus />save a link<span class="single-shortcut"
-                  ><KeyboardDown />N</span
+                ><Plus />save a link<span
+                  class="single-shortcut"
+                  aria-label="cmd+n"><CommandKey size={12} />N</span
                 ></button
               ><button onclick={() => openFromCommand('collection')}
                 ><FileTray />new collection</button
@@ -2594,32 +3042,46 @@
                       recordOpen(bookmark.id);
                       closeModal();
                     }}
-                    ><span class="command-favicon"
+                    ><span
+                      class="command-favicon relative grid place-items-center [width:28px] [height:28px] overflow-hidden border-0 [border-radius:7px] [background:var(--secondary)] [font-family:var(--font-sans)] [&_img]:absolute [&_img]:[inset:5px] [&_img]:[width:18px] [&_img]:[height:18px] [&_img]:object-contain [&:has(img)>svg]:[visibility:hidden]"
                       ><Globe size={16} /><img
                         src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(bookmark.url)}&sz=32`}
                         alt=""
                         onerror={(event) => event.currentTarget.remove()}
                       /></span
-                    ><strong class="command-bookmark-title"
+                    ><strong
+                      class="command-bookmark-title min-w-0 [flex:0_1_auto]"
                       >{bookmark.title}</strong
-                    ><small class="command-bookmark-url">{bookmark.url}</small
-                    ><ExternalLink class="command-external-link" size={16} /></a
+                    ><small
+                      class="command-bookmark-url min-w-0 [flex:1_1_auto] [margin-left:var(--icon-text-gap)]"
+                      >{bookmark.url}</small
+                    ><ExternalLink
+                      class="command-external-link [flex:0_0_16px] [color:var(--muted-foreground)]"
+                      size={16}
+                    /></a
                   >{/each}
               {/if}
             </div>
           </div>
-        {:else if modal === 'bookmark'}<div class="dialog-symbol">
+        {:else if modal === 'bookmark'}<div
+            class="dialog-symbol flex [width:fit-content] p-0 [color:var(--accent-text)] [margin-bottom:13px]"
+          >
             <BookmarkIcon size={22} />
           </div>
           <h2 id="dialog-title">
             {editing ? 'a little fine-tuning.' : 'a good find, kept.'}
           </h2>
-          <p class="dialog-description">
+          <p
+            class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+          >
             {editing
               ? 'update the details that help you find it again.'
               : 'save a link now. come back when you have a moment.'}
           </p>
-          <form class="bookmark-form" onsubmit={saveBookmark}>
+          <form
+            class="bookmark-form [&_.dialog-actions]:[padding-top:0] [&_.dialog-actions]:[border-top:0]"
+            onsubmit={saveBookmark}
+          >
             <label
               ><input
                 bind:value={url}
@@ -2648,14 +3110,24 @@
                   >{/each}</select
               ></label
             >
-            <p class="form-error" id="form-error" role="alert">{formError}</p>
-            <div class="dialog-actions">
+            <p
+              class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+              id="form-error"
+              role="alert"
+            >
+              {formError}
+            </p>
+            <div
+              class="dialog-actions flex justify-end [gap:9px] [margin-top:23px] [&>button]:[height:32px] [&>button]:[min-height:32px] [&>button]:[line-height:1]"
+            >
               <button
                 type="button"
-                class="secondary-button"
+                class="secondary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
                 disabled={saving}
                 onclick={closeModal}>cancel</button
-              ><button class="primary-button" disabled={saving}
+              ><button
+                class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
+                disabled={saving}
                 >{saving
                   ? 'saving…'
                   : editing
@@ -2665,7 +3137,7 @@
             </div>
           </form>
         {:else if modal === 'collection' || modal === 'collection-edit'}<div
-            class="dialog-symbol"
+            class="dialog-symbol flex [width:fit-content] p-0 [color:var(--accent-text)] [margin-bottom:13px]"
           >
             <FileTray size={22} />
           </div>
@@ -2674,12 +3146,17 @@
               ? 'rename collection.'
               : 'a place for an interest.'}
           </h2>
-          <p class="dialog-description">
+          <p
+            class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+          >
             {editingCollectionId
               ? 'change its name or remove it from chikota.'
               : 'keep related links together in a collection.'}
           </p>
-          <form class="collection-form" onsubmit={saveCollection}>
+          <form
+            class="collection-form [&_.dialog-actions]:[padding-top:0] [&_.dialog-actions]:[border-top:0]"
+            onsubmit={saveCollection}
+          >
             <label
               ><input
                 bind:value={collectionName}
@@ -2688,11 +3165,18 @@
                 maxlength="60"
               /></label
             >
-            <p class="form-error" role="alert">{formError}</p>
-            <div class="dialog-actions">
+            <p
+              class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+              role="alert"
+            >
+              {formError}
+            </p>
+            <div
+              class="dialog-actions flex justify-end [gap:9px] [margin-top:23px] [&>button]:[height:32px] [&>button]:[min-height:32px] [&>button]:[line-height:1]"
+            >
               {#if editingCollectionId}<button
                   type="button"
-                  class="secondary-button delete-collection"
+                  class="secondary-button delete-collection inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] [margin-right:auto] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
                   class:danger-text={collectionDeleteConfirm}
                   onclick={removeCollection}
                   >{collectionDeleteConfirm
@@ -2701,9 +3185,10 @@
                 >{/if}
               <button
                 type="button"
-                class="secondary-button"
+                class="secondary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
                 onclick={closeModal}>cancel</button
-              ><button class="primary-button"
+              ><button
+                class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
                 >{editingCollectionId
                   ? 'save name'
                   : 'create collection'}<SaveCloud /></button
@@ -2711,12 +3196,14 @@
             </div>
           </form>
         {:else if modal === 'reminder' && reminderTarget}<div
-            class="dialog-symbol"
+            class="dialog-symbol flex [width:fit-content] p-0 [color:var(--accent-text)] [margin-bottom:13px]"
           >
             <ActionBell size={22} />
           </div>
           <h2 id="dialog-title">bring it back at the right time.</h2>
-          <p class="dialog-description reminder-description">
+          <p
+            class="dialog-description reminder-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)] [&_strong]:[color:var(--foreground)] [&_strong]:font-medium"
+          >
             set a reminder for <strong>{reminderTarget.title}</strong>.
           </p>
           <form onsubmit={saveReminder}>
@@ -2735,15 +3222,24 @@
                 autocomplete="email"
               /></label
             >
-            <div class="delivery-note">
+            <div
+              class="delivery-note flex items-center [gap:var(--icon-text-gap)] [margin-top:-3px] [color:var(--muted-foreground)] [font-size:var(--secondary-text-font-size)] [&_svg]:[width:13px] [&_svg]:[height:13px]"
+            >
               {#if reminderEmail.trim()}<Mail />scheduled email only{:else}<ActionBell
                 />browser notification with a soft sound{/if}
             </div>
-            <p class="form-error" role="alert">{formError}</p>
-            <div class="dialog-actions">
+            <p
+              class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+              role="alert"
+            >
+              {formError}
+            </p>
+            <div
+              class="dialog-actions flex justify-end [gap:9px] [margin-top:23px] [&>button]:[height:32px] [&>button]:[min-height:32px] [&>button]:[line-height:1]"
+            >
               {#if reminderTarget.reminderAt && reminderStatus(reminderTarget) === 'active'}<button
                   type="button"
-                  class="secondary-button delete-collection"
+                  class="secondary-button delete-collection inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] [margin-right:auto] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
                   onclick={() => {
                     void cancelReminder(reminderTarget!);
                     closeModal();
@@ -2751,16 +3247,23 @@
                 >{/if}
               <button
                 type="button"
-                class="secondary-button"
+                class="secondary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
                 disabled={saving}
                 onclick={closeModal}>close</button
-              ><button class="primary-button" disabled={saving}
+              ><button
+                class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
+                disabled={saving}
                 >{saving ? 'saving…' : 'set reminder'}<SaveCloud /></button
               >
             </div>
           </form>
-        {:else if modal === 'settings'}<div class="settings-shell">
-            <nav class="settings-tabs" aria-label="settings sections">
+        {:else if modal === 'settings'}<div
+            class="settings-shell grid [grid-template-columns:150px_minmax(0,_1fr)] [min-height:410px]"
+          >
+            <nav
+              class="settings-tabs flex flex-col [gap:3px] [padding:54px_12px_20px] [border-right:1px_solid_var(--border)] [background:var(--sidebar)] [&_button]:flex [&_button]:items-center [&_button]:[gap:var(--icon-text-gap)] [&_button]:w-full [&_button]:[padding:8px_9px] [&_button]:border-0 [&_button]:[border-radius:5px] [&_button]:bg-transparent [&_button]:[color:var(--muted-foreground)] [&_button]:text-left [&_button]:[font-size:var(--modal-body-font-size)] [&_button:hover]:[background:var(--secondary)] [&_button:hover]:[color:var(--foreground)] [&_button.active]:[background:var(--secondary)] [&_button.active]:[color:var(--foreground)] [&_svg]:[width:13px] [&_svg]:[height:13px]"
+              aria-label="settings sections"
+            >
               <button
                 class:active={settingsTab === 'appearance'}
                 aria-pressed={settingsTab === 'appearance'}
@@ -2777,40 +3280,56 @@
                 onclick={() => (settingsTab = 'about')}><Info />about</button
               >
             </nav>
-            <section class="settings-panel">
+            <section
+              class="settings-panel min-w-0 [padding:42px_32px_30px] [&_h2_span]:[color:var(--muted-foreground)] [&_h2_span]:[font-family:var(--font-sans)] [&_h2_span]:[font-size:var(--secondary-text-font-size)] [&_h2_span]:[letter-spacing:0]"
+            >
               {#if settingsTab === 'appearance'}<h2 id="dialog-title">
                   make it feel like you.
                 </h2>
-                <p class="dialog-description">
+                <p
+                  class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+                >
                   a different atmosphere. the same quiet space.
                 </p>
-                <div class="theme-options">
+                <div
+                  class="theme-options grid [grid-template-columns:repeat(3,_minmax(0,_1fr))] [gap:12px] [&>button]:bg-none [&>button]:border-0 [&>button]:p-0 [&>button]:[font-size:var(--modal-body-font-size)] [&>button]:text-left [&_strong]:block [&_strong]:[font-size:inherit] [&_strong]:font-medium [&_strong]:[line-height:1.4] [&_strong]:[margin-top:9px] [&_small]:block [&_small]:[font-size:var(--secondary-text-font-size)] [&_small]:[line-height:1.4] [&_small]:[color:var(--muted-foreground)] [&_small]:[margin-top:4px] max-[520px]:[gap:9px] max-[520px]:[&_small]:[font-size:var(--secondary-text-font-size)]"
+                >
                   {#each themes as theme}<button
                       class:theme-selected={themeStore.current === theme.id}
                       aria-pressed={themeStore.current === theme.id}
                       onclick={() => themeStore.set(theme.id)}
-                      ><span class="theme-preview" data-preview={theme.id}
-                        ><span class="preview-sidebar"></span><span
-                          class="preview-content"><i></i><i></i><i></i></span
+                      ><span
+                        class="theme-preview flex [gap:8px] [height:80px] [border:1px_solid_#e2e2e2] [border-radius:7px] [background:#fff] relative overflow-hidden [.theme-selected_&]:[outline:2px_solid_var(--accent-text)] [.theme-selected_&]:[outline-offset:3px]"
+                        data-preview={theme.id}
+                        ><span
+                          class="preview-sidebar [width:26%] [background:#f2f2f2] [border-right:1px_solid_#e2e2e2] [[data-preview=forest]_&]:[background:#18271e] [[data-preview=forest]_&]:[border-color:#26352b] [[data-preview=ember]_&]:[background:#2a1c13] [[data-preview=ember]_&]:[border-color:#3b2d23]"
+                        ></span><span
+                          class="preview-content flex-1 [padding:19px_9px_0_0] [&_i]:block [&_i]:[height:4px] [&_i]:[border-radius:2px] [&_i]:[width:90%] [&_i]:[background:#e6e6e6] [&_i]:[margin-bottom:10px] [&_i:first-child]:[width:45%] [&_i:first-child]:[background:#777777] [[data-preview=forest]_&_i]:[background:#2e4034] [[data-preview=forest]_&_i:first-child]:[background:#b1cbb4] [[data-preview=ember]_&_i]:[background:#493429] [[data-preview=ember]_&_i:first-child]:[background:#ff8b42]"
+                          ><i></i><i></i><i></i></span
                         >{#if themeStore.current === theme.id}<span
-                            class="theme-check"><Check size={12} /></span
+                            class="theme-check absolute [right:5px] [bottom:5px] [width:16px] [height:16px] rounded-full grid place-items-center [color:var(--primary-foreground)] [background:var(--primary)]"
+                            ><Check size={12} /></span
                           >{/if}</span
                       ><strong>{theme.name}</strong><small
                         >{theme.description}</small
                       ></button
                     >{/each}
                 </div>
-                <p class="settings-note">
+                <p
+                  class="settings-note [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)] [margin:18px_0_12px]"
+                >
                   {data.session
                     ? 'bookmarks sync to your account. collections, pins, and reading status are stored on this device.'
                     : 'your links are saved in this browser. export a copy to keep a backup.'}
                 </p>
-                <button class="settings-row" onclick={exportLibrary}
+                <button
+                  class="settings-row flex items-center [gap:var(--icon-text-gap)] border-0 [border-top:1px_solid_var(--border)] [padding:16px_0] w-full bg-none text-left [font-size:var(--modal-body-font-size)] [&>span]:[margin-left:auto] [&>span]:[font-size:var(--secondary-text-font-size)] [&>span]:[color:var(--muted-foreground)] [&>span]:flex [&>span]:items-center [&>span]:[gap:var(--icon-text-gap)]"
+                  onclick={exportLibrary}
                   ><Download />export library<span
                     >json<ArrowUpRight size={13} /></span
                   ></button
                 ><button
-                  class="settings-row"
+                  class="settings-row flex items-center [gap:var(--icon-text-gap)] border-0 [border-top:1px_solid_var(--border)] [padding:16px_0] w-full bg-none text-left [font-size:var(--modal-body-font-size)] [&>span]:[margin-left:auto] [&>span]:[font-size:var(--secondary-text-font-size)] [&>span]:[color:var(--muted-foreground)] [&>span]:flex [&>span]:items-center [&>span]:[gap:var(--icon-text-gap)]"
                   onclick={() => {
                     closeModal();
                     void openExtensionPanel();
@@ -2819,7 +3338,7 @@
                     >set up<ArrowUpRight size={13} /></span
                   ></button
                 >{#if data.session}<button
-                    class="settings-row"
+                    class="settings-row flex items-center [gap:var(--icon-text-gap)] border-0 [border-top:1px_solid_var(--border)] [padding:16px_0] w-full bg-none text-left [font-size:var(--modal-body-font-size)] [&>span]:[margin-left:auto] [&>span]:[font-size:var(--secondary-text-font-size)] [&>span]:[color:var(--muted-foreground)] [&>span]:flex [&>span]:items-center [&>span]:[gap:var(--icon-text-gap)]"
                     onclick={async () => {
                       await authClient.signOut();
                       location.reload();
@@ -2828,10 +3347,14 @@
               {:else if settingsTab === 'reminders'}<h2 id="dialog-title">
                   reminder delivery
                 </h2>
-                <p class="dialog-description">
+                <p
+                  class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+                >
                   pause every reminder or clear the active queue.
                 </p>
-                <div class="reminder-setting">
+                <div
+                  class="reminder-setting flex items-center justify-between [gap:18px] [padding:14px_0] [border-block:1px_solid_var(--border)] [&_strong]:block [&_small]:block [&_strong]:[font-size:var(--modal-body-font-size)] [&_strong]:font-medium [&_small]:[margin-top:4px] [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)]"
+                >
                   <div>
                     <strong>all reminders</strong><small
                       >{remindersEnabled
@@ -2841,7 +3364,7 @@
                   </div>
                   <button
                     class:enabled={remindersEnabled}
-                    class="settings-switch"
+                    class="settings-switch [width:32px] [height:18px] [padding:2px] [border:1px_solid_var(--border)] [border-radius:9px] [background:var(--secondary)] [&_span]:block [&_span]:[width:12px] [&_span]:[height:12px] [&_span]:rounded-full [&_span]:[background:var(--muted-foreground)] [&_span]:[transform:translateX(0)] [&.enabled]:[background:var(--primary)] [&.enabled]:[border-color:var(--primary)] [&.enabled_span]:[background:var(--primary-foreground)] [&.enabled_span]:[transform:translateX(14px)]"
                     role="switch"
                     aria-checked={remindersEnabled}
                     aria-label="toggle all reminders"
@@ -2850,14 +3373,14 @@
                   >
                 </div>
                 <button
-                  class="settings-row danger-text"
+                  class="settings-row danger-text [color:#d15f54] flex items-center [gap:var(--icon-text-gap)] border-0 [border-top:1px_solid_var(--border)] [padding:16px_0] w-full bg-none text-left [font-size:var(--modal-body-font-size)] [&>span]:[margin-left:auto] [&>span]:[font-size:var(--secondary-text-font-size)] [&>span]:[color:var(--muted-foreground)] [&>span]:flex [&>span]:items-center [&>span]:[gap:var(--icon-text-gap)]"
                   disabled={!reminderBookmarks.some(
                     (bookmark) => reminderStatus(bookmark) === 'active'
                   )}
                   onclick={cancelAllReminders}
                   ><BellOff />cancel all active reminders</button
                 ><button
-                  class="settings-row"
+                  class="settings-row flex items-center [gap:var(--icon-text-gap)] border-0 [border-top:1px_solid_var(--border)] [padding:16px_0] w-full bg-none text-left [font-size:var(--modal-body-font-size)] [&>span]:[margin-left:auto] [&>span]:[font-size:var(--secondary-text-font-size)] [&>span]:[color:var(--muted-foreground)] [&>span]:flex [&>span]:items-center [&>span]:[gap:var(--icon-text-gap)]"
                   onclick={() => {
                     closeModal();
                     void openRemindersPanel();
@@ -2867,55 +3390,83 @@
                   ></button
                 >
               {:else}<h2 id="dialog-title">chikọta <span>v1.0.0</span></h2>
-                <p class="about-copy">
+                <p
+                  class="about-copy [max-width:390px] [margin:12px_0_0] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [line-height:1.8]"
+                >
                   “chikọta” is igbo for “bring together”—a quiet, beautiful
                   place to gather the links you want to keep, read, and
                   rediscover.
                 </p>
-                <div class="about-mark"><BookmarkFilled /></div>
+                <div
+                  class="about-mark grid place-items-center [width:42px] [height:42px] [margin-top:38px] [border:1px_solid_var(--border)] [border-radius:8px] [color:var(--foreground)]"
+                >
+                  <BookmarkFilled />
+                </div>
               {/if}
             </section>
           </div>
-        {:else if modal === 'delete'}<div class="dialog-symbol">
+        {:else if modal === 'delete'}<div
+            class="dialog-symbol flex [width:fit-content] p-0 [color:var(--accent-text)] [margin-bottom:13px]"
+          >
             <DeleteTrash size={22} />
           </div>
           <h2 id="dialog-title">let these links go?</h2>
-          <p class="dialog-description">
+          <p
+            class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+          >
             delete {selected.length} selected {selected.length === 1
               ? 'bookmark'
               : 'bookmarks'} from your library. this cannot be undone.
           </p>
-          <p class="form-error" role="alert">{formError}</p>
-          <div class="dialog-actions">
+          <p
+            class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+            role="alert"
+          >
+            {formError}
+          </p>
+          <div
+            class="dialog-actions flex justify-end [gap:9px] [margin-top:23px] [&>button]:[height:32px] [&>button]:[min-height:32px] [&>button]:[line-height:1]"
+          >
             <button
-              class="secondary-button"
+              class="secondary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
               disabled={saving}
               onclick={closeModal}>keep bookmarks</button
             ><button
-              class="primary-button destructive"
+              class="primary-button destructive inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] [background:#b04437] [color:white] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
               disabled={saving}
               onclick={removeSelected}
               >{saving ? 'deleting…' : 'delete bookmarks'}</button
             >
           </div>
-        {:else if modal === 'delete-collections'}<div class="dialog-symbol">
+        {:else if modal === 'delete-collections'}<div
+            class="dialog-symbol flex [width:fit-content] p-0 [color:var(--accent-text)] [margin-bottom:13px]"
+          >
             <DeleteTrash size={22} />
           </div>
           <h2 id="dialog-title">remove these collections?</h2>
-          <p class="dialog-description">
+          <p
+            class="dialog-description [margin:5px_0_18px] [font-size:var(--modal-body-font-size)] [line-height:1.7] [color:var(--muted-foreground)]"
+          >
             delete {selectedCollections.length} selected {selectedCollections.length ===
             1
               ? 'collection'
               : 'collections'}. their bookmarks will remain in your library.
           </p>
-          <p class="form-error" role="alert">{formError}</p>
-          <div class="dialog-actions">
+          <p
+            class="form-error [color:#cf6356] [font-size:var(--modal-body-font-size)] [line-height:1.6] [&:empty]:hidden"
+            role="alert"
+          >
+            {formError}
+          </p>
+          <div
+            class="dialog-actions flex justify-end [gap:9px] [margin-top:23px] [&>button]:[height:32px] [&>button]:[min-height:32px] [&>button]:[line-height:1]"
+          >
             <button
-              class="secondary-button"
+              class="secondary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
               disabled={saving}
               onclick={closeModal}>keep collections</button
             ><button
-              class="primary-button destructive"
+              class="primary-button destructive inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] [background:#b04437] [color:white] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
               disabled={saving}
               onclick={removeSelectedCollections}
               >{saving ? 'deleting…' : 'delete collections'}</button
