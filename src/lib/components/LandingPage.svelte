@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { authClient } from '$lib/auth-client';
+  import SiteFavicon from '$lib/components/SiteFavicon.svelte';
   import { themeStore, type Theme } from '$lib/stores/theme.svelte';
   import {
     Archive,
@@ -138,11 +139,7 @@
         {#each preview as item, index (item.host)}
           <article class="preview-row">
             <span class="preview-mark"
-              >{item.letter}<img
-                src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(item.url)}&sz=32`}
-                alt=""
-                onerror={(event) => event.currentTarget.remove()}
-              /></span
+              ><SiteFavicon url={item.url} size={18} /></span
             >
             <div>
               <strong>{item.title}</strong>
@@ -329,7 +326,7 @@
     font-size: 11px;
     font-weight: 500;
   }
-  .preview-mark img {
+  .preview-mark :global(img) {
     position: absolute;
     inset: 5px;
     width: 18px;

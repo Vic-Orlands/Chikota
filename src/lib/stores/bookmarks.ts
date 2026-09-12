@@ -1,13 +1,12 @@
-import { writable, derived, get } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import type { Bookmark } from '$lib/types';
-import { activeCategoryId } from './categories';
 
 function normalize(b: Bookmark & { description?: string }): Bookmark {
   return {
     ...b,
     summary: b.summary ?? b.description ?? '',
     tags: b.tags ?? [],
-    categoryId: b.categoryId || '4',
+    categoryId: b.categoryId ?? '',
     createdAt: new Date(b.createdAt),
     reminderAt: b.reminderAt ? new Date(b.reminderAt) : undefined,
     openedAt: b.openedAt ? new Date(b.openedAt) : undefined
@@ -76,15 +75,3 @@ function createBookmarkStore() {
   };
 }
 export const bookmarks = createBookmarkStore();
-export const filteredBookmarks = derived(
-  [bookmarks, activeCategoryId],
-  ([$bookmarks, $activeCategoryId]) =>
-    $activeCategoryId === 'all'
-      ? $bookmarks
-      : $bookmarks.filter((b) => b.categoryId === $activeCategoryId)
-);
-export const bookmarkCounts = derived(bookmarks, (items) => {
-  const counts: Record<string, number> = { all: items.length };
-  for (const b of items) counts[b.categoryId] = (counts[b.categoryId] || 0) + 1;
-  return counts;
-});
