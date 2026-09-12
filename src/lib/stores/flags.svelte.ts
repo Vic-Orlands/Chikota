@@ -1,4 +1,5 @@
 import type { Bookmark } from '$lib/types';
+import { isRecentOpen } from '$lib/widget-membership';
 
 export type BookmarkFlag = {
   pinned?: boolean;
@@ -95,9 +96,7 @@ export function createFlagsStore(options: {
   }
 
   function openedWithinSevenDays(id: string) {
-    const openedAt = Date.parse(flags[id]?.openedAt || '');
-    const elapsed = Date.now() - openedAt;
-    return Number.isFinite(openedAt) && elapsed >= 0 && elapsed <= 604_800_000;
+    return isRecentOpen(flags[id]?.openedAt, Date.now());
   }
 
   return {

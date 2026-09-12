@@ -35,8 +35,12 @@ struct ChikotaWidgetView: View {
         }
     }
 
+    private var widgetItems: [WidgetBookmark] {
+        entry.snapshot.items.filter(\.belongsOnWidget)
+    }
+
     private var items: [WidgetBookmark] {
-        let sorted = entry.snapshot.items.sorted {
+        let sorted = widgetItems.sorted {
             if $0.isPinned != $1.isPinned { return $0.isPinned }
             return $0.updatedAt > $1.updatedAt
         }
@@ -91,7 +95,7 @@ struct ChikotaWidgetView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("chikota").font(.headline)
                 if family != .systemSmall {
-                    Text("\(entry.snapshot.items.count) in your library")
+                    Text("\(widgetItems.count) on your widget")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

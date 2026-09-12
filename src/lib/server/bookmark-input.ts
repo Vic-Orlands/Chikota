@@ -57,6 +57,7 @@ export function bookmarkInput(body: Record<string, unknown>, partial = false) {
     if (values.openedAt && Number.isNaN(+values.openedAt))
       error(400, 'Invalid opened date');
   }
+  // Tags are accepted for stored data / API clients; live UI does not edit them.
   let tagNames: string[] | undefined;
   if (body.tags !== undefined) {
     if (!Array.isArray(body.tags) || body.tags.length > 30)

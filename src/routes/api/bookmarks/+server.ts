@@ -1,10 +1,11 @@
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/db';
 import { bookmarks, tags, bookmarksToTags } from '$lib/db/schema';
 import { auth } from '$lib/auth';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { bookmarkInput } from '$lib/server/bookmark-input';
+import { parseBulkIds } from '$lib/server/bulk-ids';
 
 export const GET = async ({ request }) => {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -63,4 +64,24 @@ export const POST = async ({ request }) => {
     { ...newBookmark, summary: newBookmark.description, tags: savedTags },
     { status: 201 }
   );
+};
+
+export const DELETE = async ({ request }) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+  const parsed = parseBulkIds(await request.json());
+  if (!parsed.ok) error(400, parsed.message);
+  const removed = await db
+    .delete(bookmarks)
+    .where(
+      and(
+        eq(bookmarks.userId, session.user.id),
+        inArray(bookmarks.id, parsed.ids)
+      )
+    )
+    .returning({ id: bookmarks.id });
+  return json({
+    success: true,
+    deleted: removed.map((row) => row.id)
+  });
 };
