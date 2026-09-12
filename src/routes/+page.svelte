@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { flip } from 'svelte/animate';
-  import { fly } from 'svelte/transition';
   import { DropdownMenu } from 'bits-ui';
   import { replaceState } from '$app/navigation';
   import { bookmarks } from '$lib/stores/bookmarks';
@@ -77,6 +75,7 @@
     label: string;
     dates: string[];
     kind: 'day' | 'month' | 'year';
+    count: number;
   };
 
   let { data } = $props();
@@ -107,7 +106,9 @@
   let selected = $state<string[]>([]);
   let selectedCollections = $state<string[]>([]);
   let selectionTooltip = $state({ label: '', x: 0, visible: false });
+  let selectionTooltipWarm = $state(false);
   let selectionTooltipFrame: number | undefined;
+  let selectionTooltipWarmFrame: number | undefined;
   let selectionTooltipResetTimer: number | undefined;
   let listToolsOpen = $state(false);
   let listToolsTrigger = $state<HTMLButtonElement>();
@@ -197,9 +198,14 @@
   let collapsedGroups = $state<string[]>([]);
   let stickyLibraryHeader = $state<HTMLElement>();
   let dateDeck = $state<DateDeckItem[]>([]);
+  let freshDateDeckKeys = $state<string[]>([]);
+  let dateDeckTop = $state(0);
+  let dateDeckRight = $state(0);
   let dateDeckFrame: number | undefined;
-  let dateDeckObserver: IntersectionObserver | undefined;
+  let dateDeckFreshFrame: number | undefined;
+  let dateDeckObservers: IntersectionObserver[] = [];
   let crossedDateKeys = new Set<string>();
+  const dateDeckRowHeight = 46;
   let reduceMotion = $state(false);
   let groups = $derived.by(() => {
     const grouped = new Map<string, Bookmark[]>();
@@ -235,38 +241,49 @@
       .filter((group) => group !== undefined);
     const active = crossed[crossed.length - 1];
     if (!active) return [];
-    const compacted = new Map<string, DateDeckItem>();
-    for (const group of crossed) {
-      const kind =
+    const buckets = new Map<
+      string,
+      { dates: string[]; count: number; lastIndex: number }
+    >();
+    const metadata = crossed.map((group, index) => {
+      const kind: DateDeckItem['kind'] =
         group.year !== active.year
           ? 'year'
           : group.monthKey !== active.monthKey
             ? 'month'
             : 'day';
-      const key =
+      const bucket =
         kind === 'year'
           ? `year-${group.year}`
           : kind === 'month'
             ? `month-${group.monthKey}`
             : `day-${group.date}`;
-      const existing = compacted.get(key);
-      if (existing) {
-        existing.dates.push(group.date);
-        continue;
-      }
-      compacted.set(key, {
-        key,
-        kind,
+      const existing = buckets.get(bucket);
+      buckets.set(bucket, {
+        dates: [...(existing?.dates || []), group.date],
+        count: (existing?.count || 0) + group.items.length,
+        lastIndex: index
+      });
+      return { group, kind, bucket };
+    });
+    const compacted: DateDeckItem[] = [];
+    for (const [index, entry] of metadata.entries()) {
+      const bucket = buckets.get(entry.bucket)!;
+      if (index !== bucket.lastIndex) continue;
+      compacted.push({
+        key: `day-${entry.group.date}`,
+        kind: entry.kind,
         label:
-          kind === 'year'
-            ? group.year
-            : kind === 'month'
-              ? `${group.month} ${group.year}`
-              : group.date,
-        dates: [group.date]
+          entry.kind === 'year'
+            ? entry.group.year
+            : entry.kind === 'month'
+              ? `${entry.group.month} ${entry.group.year}`
+              : entry.group.date,
+        dates: bucket.dates,
+        count: bucket.count
       });
     }
-    return [...compacted.values()];
+    return compacted;
   }
   function refreshDateDeck() {
     const crossedDates = groups
@@ -279,33 +296,71 @@
     const nextSignature = next
       .map((item) => `${item.key}:${item.dates.join(',')}`)
       .join('|');
-    if (currentSignature !== nextSignature) dateDeck = next;
+    if (currentSignature === nextSignature) return;
+    const currentKeys = new Set(dateDeck.map((item) => item.key));
+    freshDateDeckKeys = next
+      .filter((item) => !currentKeys.has(item.key))
+      .map((item) => item.key);
+    dateDeck = next;
+    if (dateDeckFreshFrame) window.cancelAnimationFrame(dateDeckFreshFrame);
+    dateDeckFreshFrame = window.requestAnimationFrame(() => {
+      dateDeckFreshFrame = window.requestAnimationFrame(() => {
+        freshDateDeckKeys = [];
+        dateDeckFreshFrame = undefined;
+      });
+    });
   }
   function connectDateDeckObserver() {
     dateDeckFrame = undefined;
-    dateDeckObserver?.disconnect();
+    if (dateDeckFreshFrame) window.cancelAnimationFrame(dateDeckFreshFrame);
+    dateDeckFreshFrame = undefined;
+    for (const observer of dateDeckObservers) observer.disconnect();
+    dateDeckObservers = [];
     crossedDateKeys = new Set();
+    freshDateDeckKeys = [];
     dateDeck = [];
-    if (!stickyLibraryHeader || view !== 'library') return;
+    if (
+      !stickyLibraryHeader ||
+      view !== 'library' ||
+      !window.matchMedia('(min-width: 1061px)').matches
+    )
+      return;
     const boundary = Math.ceil(
       stickyLibraryHeader.getBoundingClientRect().bottom
     );
-    dateDeckObserver = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const date = (entry.target as HTMLElement).dataset.dateKey;
-          if (!date) continue;
-          if (entry.boundingClientRect.top <= boundary)
-            crossedDateKeys.add(date);
-          else crossedDateKeys.delete(date);
-        }
-        refreshDateDeck();
-      },
-      { rootMargin: `-${boundary}px 0px 0px 0px`, threshold: 0 }
+    const firstGroup = document.querySelector<HTMLElement>(
+      '.date-group[data-date-key]'
     );
+    dateDeckTop = boundary;
+    dateDeckRight = firstGroup
+      ? window.innerWidth - firstGroup.getBoundingClientRect().left + 12
+      : 0;
     document
-      .querySelectorAll<HTMLElement>('.date-group[data-date-key]')
-      .forEach((element) => dateDeckObserver?.observe(element));
+      .querySelectorAll<HTMLElement>('.date-sentinel[data-date-key]')
+      .forEach((element, groupIndex) => {
+        const crossedThroughGroup = groups
+          .slice(0, groupIndex + 1)
+          .map((group) => group.date);
+        const predictedDeck = compactDateDeck(crossedThroughGroup);
+        const slotIndex = Math.max(predictedDeck.length - 1, 0);
+        const slotBoundary = boundary + slotIndex * dateDeckRowHeight;
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            const date = (entry.target as HTMLElement).dataset.dateKey;
+            if (!date) return;
+            if (
+              !entry.isIntersecting &&
+              entry.boundingClientRect.top <= slotBoundary
+            )
+              crossedDateKeys.add(date);
+            else crossedDateKeys.delete(date);
+            refreshDateDeck();
+          },
+          { rootMargin: `-${slotBoundary}px 0px 0px 0px`, threshold: 0 }
+        );
+        observer.observe(element);
+        dateDeckObservers.push(observer);
+      });
   }
   function scheduleDateDeckObserver() {
     if (dateDeckFrame) return;
@@ -496,10 +551,13 @@
       if (platformCalloutTimer) window.clearTimeout(platformCalloutTimer);
       if (selectionTooltipFrame)
         window.cancelAnimationFrame(selectionTooltipFrame);
+      if (selectionTooltipWarmFrame)
+        window.cancelAnimationFrame(selectionTooltipWarmFrame);
       if (selectionTooltipResetTimer)
         window.clearTimeout(selectionTooltipResetTimer);
       if (dateDeckFrame) window.cancelAnimationFrame(dateDeckFrame);
-      dateDeckObserver?.disconnect();
+      if (dateDeckFreshFrame) window.cancelAnimationFrame(dateDeckFreshFrame);
+      for (const observer of dateDeckObservers) observer.disconnect();
     };
   });
   async function initialize() {
@@ -582,16 +640,24 @@
     };
     if (selectionTooltipResetTimer)
       window.clearTimeout(selectionTooltipResetTimer);
-    if (selectionTooltip.visible) {
+    if (selectionTooltipWarm) {
       selectionTooltip = nextTooltip;
       return;
     }
     if (selectionTooltipFrame)
       window.cancelAnimationFrame(selectionTooltipFrame);
+    if (selectionTooltipWarmFrame) {
+      window.cancelAnimationFrame(selectionTooltipWarmFrame);
+      selectionTooltipWarmFrame = undefined;
+    }
     selectionTooltip = { ...nextTooltip, visible: false };
     selectionTooltipFrame = window.requestAnimationFrame(() => {
       selectionTooltip = nextTooltip;
       selectionTooltipFrame = undefined;
+      selectionTooltipWarmFrame = window.requestAnimationFrame(() => {
+        selectionTooltipWarm = true;
+        selectionTooltipWarmFrame = undefined;
+      });
     });
   }
   function hideSelectionTooltip(event?: FocusEvent) {
@@ -604,12 +670,18 @@
       return;
     if (selectionTooltipFrame)
       window.cancelAnimationFrame(selectionTooltipFrame);
+    if (selectionTooltipWarmFrame) {
+      window.cancelAnimationFrame(selectionTooltipWarmFrame);
+      selectionTooltipWarmFrame = undefined;
+    }
+    selectionTooltipWarm = false;
     selectionTooltip = { ...selectionTooltip, visible: false };
     selectionTooltipResetTimer = window.setTimeout(() => {
-      if (!selectionTooltip.visible)
+      if (!selectionTooltip.visible) {
         selectionTooltip = { label: '', x: 0, visible: false };
+      }
       selectionTooltipResetTimer = undefined;
-    }, 160);
+    }, 180);
   }
   async function openModal(
     value: NonNullable<typeof modal>,
@@ -1575,7 +1647,7 @@
   <div
     class="reading-column [width:min(var(--reading-max),_calc(100%_-_40px))] [max-width:var(--reading-max)] [margin:0_auto] [min-height:100dvh] min-w-0 [border-inline:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] [&>main]:min-w-0 [&>main]:max-w-full max-[760px]:[width:calc(100%_-_28px)] max-[520px]:[width:calc(100%_-_20px)]"
   >
-    <main>
+    <main class="pb-40 max-[520px]:pb-24">
       <div
         bind:this={stickyLibraryHeader}
         class="sticky top-0 z-20 bg-background [box-shadow:0_1px_0_color-mix(in_srgb,_var(--border)_58%,_transparent)]"
@@ -1761,24 +1833,6 @@
           class="pointer-events-none absolute top-0 -bottom-6 left-full hidden w-[50vw] bg-linear-to-b from-background from-[calc(100%-24px)] to-transparent min-[781px]:block"
           aria-hidden="true"
         ></div>
-        <div
-          class="absolute right-[calc(100%+12px)] top-[calc(100%+8px)] hidden w-max max-w-[220px] flex-col items-end gap-1 min-[1061px]:flex"
-          aria-label="sticky bookmark dates"
-        >
-          {#each dateDeck as item (item.key)}
-            <button
-              animate:flip={{ duration: reduceMotion ? 0 : 180 }}
-              transition:fly={{ y: -6, duration: reduceMotion ? 0 : 160 }}
-              class="flex min-h-7 w-max max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-right text-[11px] leading-none text-muted-foreground shadow-sm [will-change:transform,_opacity] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent-text) [&.month]:font-medium [&.year]:font-semibold"
-              class:month={item.kind === 'month'}
-              class:year={item.kind === 'year'}
-              aria-label={`${item.dates.every((date) => collapsedGroups.includes(date)) ? 'expand' : 'collapse'} ${item.label} bookmark group`}
-              onclick={() => toggleDateDeckItem(item)}
-            >
-              {item.label}
-            </button>
-          {/each}
-        </div>
       </div>
       {#if section !== 'opened'}<section
           class="pinned-section ruled-section relative p-0 [&::before]:[content:''] [&::before]:absolute [&::before]:[height:1px] [&::before]:[background:color-mix(in_srgb,_var(--border)_58%,_transparent)] [&::before]:[top:0] [&::before]:[left:0] [&::before]:[right:0] [&::before]:pointer-events-none [&>.section-toolbar]:[min-height:38px] max-[520px]:[padding-inline:0]"
@@ -1959,26 +2013,59 @@
         {:else if visible.length}
           {#each groups as group}
             {@const collapsed = collapsedGroups.includes(group.date)}
+            {@const stackedItem = dateDeck.find(
+              (item) => item.key === `day-${group.date}`
+            )}
+            {@const stackIndex = stackedItem
+              ? dateDeck.indexOf(stackedItem)
+              : 0}
+            {@const freshStackedItem = stackedItem
+              ? freshDateDeckKeys.includes(stackedItem.key)
+              : false}
+            {@const headingCollapsed = (
+              stackedItem?.dates || [group.date]
+            ).every((date) => collapsedGroups.includes(date))}
             <div
               data-date-key={group.date}
               class="date-group relative min-w-0 [&.collapsed_.date-group-body]:[min-height:46px] [&>.collapse-grid]:relative [&>.collapse-grid]:[z-index:1] [&>.collapse-grid]:[clip-path:inset(0)] [&>.collapse-grid]:min-w-0 [&>.collapse-grid]:max-w-full max-[1060px]:[&.collapsed]:min-h-0 max-[1060px]:[&.collapsed_.date-group-body]:[min-height:38px] motion-safe:[&>.collapse-grid]:[transition:grid-template-rows_250ms_cubic-bezier(0.22,_1,_0.36,_1),_opacity_180ms_ease-in-out]"
               class:collapsed
             >
+              <span
+                data-date-key={group.date}
+                class="date-sentinel pointer-events-none absolute left-0 top-0 size-px"
+                aria-hidden="true"
+              ></span>
               <button
-                class="date-heading [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] absolute [right:calc(100%_+_12px)] [top:0] justify-end [min-height:46px] [width:max-content] [font-size:var(--section-label-font-size)] max-[1060px]:static max-[1060px]:justify-start max-[1060px]:[min-height:38px]"
-                aria-expanded={!collapsed}
-                onclick={() => toggleGroup(group.date)}
-                ><span>{group.date}</span><span
+                class={[
+                  'date-heading [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] justify-end [min-height:46px] [width:max-content] [font-size:var(--section-label-font-size)] max-[1060px]:static max-[1060px]:justify-start max-[1060px]:[min-height:38px]',
+                  stackedItem
+                    ? 'fixed [z-index:19] [will-change:transform] motion-reduce:transition-none'
+                    : 'absolute [right:calc(100%_+_12px)] [top:0]',
+                  stackedItem && !freshStackedItem
+                    ? 'motion-safe:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)]'
+                    : 'transition-none'
+                ]}
+                style:top={stackedItem ? `${dateDeckTop}px` : undefined}
+                style:right={stackedItem ? `${dateDeckRight}px` : undefined}
+                style:transform={stackedItem
+                  ? `translateY(${stackIndex * dateDeckRowHeight}px)`
+                  : undefined}
+                aria-expanded={!headingCollapsed}
+                onclick={() =>
+                  stackedItem
+                    ? toggleDateDeckItem(stackedItem)
+                    : toggleGroup(group.date)}
+                ><span>{stackedItem?.label || group.date}</span><span
                   class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
-                  >{group.items.length}</span
+                  >{stackedItem?.count || group.items.length}</span
                 ><span
                   class="t-icon-swap date-icon-swap relative inline-grid [grid-template:15px_/_15px] [width:15px] [height:15px] overflow-hidden shrink-0 place-items-center [isolation:isolate] [vertical-align:middle] [&_.t-icon]:[grid-area:1_/_1] [&_.t-icon]:grid [&_.t-icon]:place-items-center [&_.t-icon]:[width:15px] [&_.t-icon]:[height:15px] [&_.t-icon]:overflow-hidden [&_.t-icon]:[line-height:0] [&_.t-icon]:[transition:opacity_var(--icon-swap-dur)_var(--icon-swap-ease),_filter_var(--icon-swap-dur)_var(--icon-swap-ease),_transform_var(--icon-swap-dur)_var(--icon-swap-ease),_visibility_var(--icon-swap-dur)_var(--icon-swap-ease)] [&_.t-icon]:[will-change:opacity,_filter,_transform] [&[data-state=closed]_.t-icon[data-icon=closed]]:opacity-100 [&[data-state=closed]_.t-icon[data-icon=closed]]:[visibility:visible] [&[data-state=closed]_.t-icon[data-icon=closed]]:[filter:blur(0)] [&[data-state=closed]_.t-icon[data-icon=closed]]:[transform:scale(1)] [&[data-state=opened]_.t-icon[data-icon=opened]]:opacity-100 [&[data-state=opened]_.t-icon[data-icon=opened]]:[visibility:visible] [&[data-state=opened]_.t-icon[data-icon=opened]]:[filter:blur(0)] [&[data-state=opened]_.t-icon[data-icon=opened]]:[transform:scale(1)] [&[data-state=closed]_.t-icon[data-icon=opened]]:opacity-0 [&[data-state=closed]_.t-icon[data-icon=opened]]:[visibility:hidden] [&[data-state=closed]_.t-icon[data-icon=opened]]:pointer-events-none [&[data-state=closed]_.t-icon[data-icon=opened]]:[filter:blur(var(--icon-swap-blur))] [&[data-state=closed]_.t-icon[data-icon=opened]]:[transform:scale(var(--icon-swap-start-scale))] [&[data-state=opened]_.t-icon[data-icon=closed]]:opacity-0 [&[data-state=opened]_.t-icon[data-icon=closed]]:[visibility:hidden] [&[data-state=opened]_.t-icon[data-icon=closed]]:pointer-events-none [&[data-state=opened]_.t-icon[data-icon=closed]]:[filter:blur(var(--icon-swap-blur))] [&[data-state=opened]_.t-icon[data-icon=closed]]:[transform:scale(var(--icon-swap-start-scale))] [&[data-state=closed]_[data-icon=opened]_.date-icon-glyph]:[transform:rotate(90deg)] [&[data-state=opened]_[data-icon=closed]_.date-icon-glyph]:[transform:rotate(-90deg)] motion-reduce:[&_.t-icon]:[transition:none!important]"
-                  data-state={collapsed ? 'closed' : 'opened'}
+                  data-state={headingCollapsed ? 'closed' : 'opened'}
                   aria-hidden="true"
                   ><span
                     class={[
                       't-icon',
-                      collapsed
+                      headingCollapsed
                         ? 'opacity-100'
                         : 'pointer-events-none opacity-0'
                     ]}
@@ -1990,7 +2077,7 @@
                   ><span
                     class={[
                       't-icon',
-                      collapsed
+                      headingCollapsed
                         ? 'pointer-events-none opacity-0'
                         : 'opacity-100'
                     ]}
@@ -2023,6 +2110,7 @@
                       onpointerdown={startDrag}
                     >
                       {#each group.items as b (b.id)}
+                        {@const bookmarkReminderStatus = reminderStatus(b)}
                         <div
                           data-bookmark={b.id}
                           class="bookmark-row min-w-0 w-full max-w-full flex items-center [gap:12px] [min-height:64px] [padding:14px] relative [isolation:isolate] overflow-visible cursor-pointer [&+.bookmark-row]:[border-top:1px_solid_var(--border)] [&::before]:[content:''] [&::before]:absolute [&::before]:[z-index:0] [&::before]:[inset:0] [&::before]:bg-transparent [&::before]:pointer-events-none [&>*]:relative [&>*]:[z-index:1] [&:hover]:bg-transparent [&:hover::before]:[background:var(--row-hover)] [&.selected]:bg-transparent [&.selected]:[box-shadow:none] [&.selected::before]:[background:var(--accent-soft)] [&.context-active::before]:[background:color-mix(in_srgb,_var(--row-hover)_80%,_var(--foreground)_4%)] [&:focus-visible]:[outline:2px_solid_var(--accent-text)] [&:focus-visible]:[outline-offset:-2px] [&:hover_.row-actions_.icon-button]:opacity-100 max-[520px]:[gap:10px] max-[520px]:[padding:12px] motion-safe:[transition:background-color_140ms_ease]"
@@ -2118,12 +2206,19 @@
                             </div>
                           </div>
                           <div
-                            class="row-actions flex items-center shrink-0 [gap:var(--icon-icon-gap)] [margin-left:auto] max-w-full [&_.icon-button]:[width:16px] [&_.icon-button]:[height:28px] [&_.icon-button]:opacity-0 [&_.icon-button:focus-visible]:opacity-100 [&_.icon-button:hover]:bg-transparent [&_.icon-button:hover]:[color:var(--foreground)] [&_.icon-button:focus-visible]:bg-transparent [&_.icon-button:focus-visible]:[color:var(--foreground)] [&_.icon-button.pinned]:[color:var(--foreground)] [&_.icon-button.pinned_svg]:[fill:currentColor] [&_.icon-button.reminder-active]:opacity-100 [&_.icon-button.reminder-active]:[color:var(--foreground)]"
+                            class="row-actions static! flex items-center shrink-0 [gap:var(--icon-icon-gap)] [margin-left:auto] max-w-full [&_.icon-button]:[width:16px] [&_.icon-button]:[height:28px] [&_.icon-button]:opacity-0 [&_.icon-button:focus-visible]:opacity-100 [&_.icon-button:hover]:bg-transparent [&_.icon-button:hover]:[color:var(--foreground)] [&_.icon-button:focus-visible]:bg-transparent [&_.icon-button:focus-visible]:[color:var(--foreground)] [&_.icon-button.pinned]:[color:var(--foreground)] [&_.icon-button.pinned_svg]:[fill:currentColor] [&_.icon-button.reminder-active]:opacity-100 [&_.icon-button.reminder-active]:[color:var(--foreground)]"
                           >
                             <button
-                              class="icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
-                              class:reminder-active={reminderStatus(b) ===
-                                'active' && !!b.reminderAt}
+                              class={[
+                                'icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]',
+                                bookmarkReminderStatus === 'active' &&
+                                  b.reminderAt && [
+                                    'reminder-active min-[781px]:absolute min-[781px]:top-1/2 min-[781px]:-translate-y-1/2',
+                                    flags[b.id]?.pinned
+                                      ? 'min-[781px]:[left:calc(100%_+_30px)]'
+                                      : 'min-[781px]:[left:calc(100%_+_8px)]'
+                                  ]
+                              ]}
                               aria-label={`remind me about ${b.title}`}
                               title={b.reminderAt
                                 ? formatReminder(b.reminderAt)
@@ -2174,8 +2269,13 @@
                               class="absolute! [left:calc(100%_+_8px)] top-1/2 hidden! -translate-y-1/2 place-items-center text-foreground [&_svg]:fill-current min-[781px]:grid!"
                               aria-hidden="true"><Pin size={14} /></span
                             >{/if}
-                          {#if b.reminderAt && reminderStatus(b) === 'done'}<span
-                              class="reminder-done-marker absolute [right:14px] [top:50%] grid place-items-center [color:var(--muted-foreground)] [transform:translateY(-50%)]"
+                          {#if b.reminderAt && bookmarkReminderStatus === 'done'}<span
+                              class={[
+                                'reminder-done-marker absolute! right-[14px] top-1/2 grid -translate-y-1/2 place-items-center text-muted-foreground min-[781px]:right-auto',
+                                flags[b.id]?.pinned
+                                  ? 'min-[781px]:[left:calc(100%_+_30px)]'
+                                  : 'min-[781px]:[left:calc(100%_+_8px)]'
+                              ]}
                               title="reminder completed"
                               aria-label="reminder completed"
                               ><ReminderDone size={16} /></span
@@ -2745,22 +2845,34 @@
       onfocusout={hideSelectionTooltip}
     >
       <div
-        class="pointer-events-none absolute bottom-[calc(100%+10px)] left-0 [z-index:1] [&.tracking]:[will-change:transform] motion-safe:[&.tracking]:[transition:transform_160ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
-        class:tracking={selectionTooltip.visible}
+        class="pointer-events-none absolute bottom-[calc(100%+20px)] left-0 [z-index:1] [&.warm]:[will-change:transform] motion-safe:[&.warm]:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
+        class:warm={selectionTooltipWarm}
         style:transform={`translateX(${selectionTooltip.x}px)`}
       >
         <div
           id="selection-dock-tooltip"
           role="tooltip"
           aria-hidden={!selectionTooltip.visible}
-          class="relative -translate-x-1/2 translate-y-2 scale-x-[0.82] scale-y-[0.9] rounded-lg border border-border bg-card px-3 py-2 text-[12px] leading-none text-foreground opacity-0 shadow-(--shadow) [transform-origin:center_bottom] motion-safe:[transition:transform_160ms_cubic-bezier(0.22,_1,_0.36,_1),_opacity_120ms_ease-out] motion-reduce:transition-none [&.visible]:-translate-x-1/2 [&.visible]:translate-y-0 [&.visible]:scale-100 [&.visible]:opacity-100"
+          class="relative isolate rounded-[15px] border border-border bg-card px-3.5 py-2 text-[12px] leading-none text-foreground opacity-0 shadow-(--shadow) [transform:translate(-50%,_12px)_scale(0.62,_0.36)] [transform-origin:center_calc(100%+18px)] [will-change:transform,_opacity] motion-safe:[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_opacity_110ms_ease-out] motion-reduce:transition-none [&.visible]:[transform:translate(-50%,_0)_scale(1)] [&.visible]:opacity-100"
           class:visible={selectionTooltip.visible}
         >
-          <span
-            class="absolute left-1/2 top-[calc(100%-1px)] -z-1 h-3 w-3 -translate-x-1/2 scale-x-75 scale-y-150 rounded-b-[70%] border-x border-b border-border bg-card [transform-origin:center_top] motion-safe:[transition:transform_160ms_cubic-bezier(0.22,_1,_0.36,_1)] motion-reduce:transition-none [&.visible]:-translate-x-1/2 [&.visible]:scale-x-100 [&.visible]:scale-y-100"
-            class:visible={selectionTooltip.visible}
+          <svg
+            class="absolute left-1/2 top-[calc(100%-2px)] z-0 h-5 w-11 -translate-x-1/2 overflow-visible"
+            viewBox="0 0 40 20"
+            fill="none"
             aria-hidden="true"
-          ></span>{selectionTooltip.label}
+          >
+            <path
+              d="M0 1C9 1 12 3 15 8C16.5 10.5 17 12.5 17 14C17 17.2 18.2 19 20 19C21.8 19 23 17.2 23 14C23 12.5 23.5 10.5 25 8C28 3 31 1 40 1L40 0H0Z"
+              fill="var(--card)"
+            ></path>
+            <path
+              d="M0 1C9 1 12 3 15 8C16.5 10.5 17 12.5 17 14C17 17.2 18.2 19 20 19C21.8 19 23 17.2 23 14C23 12.5 23.5 10.5 25 8C28 3 31 1 40 1"
+              stroke="var(--border)"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+          </svg><span class="relative z-1">{selectionTooltip.label}</span>
         </div>
       </div>
       <button
