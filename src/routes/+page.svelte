@@ -17,6 +17,13 @@
   import WelcomeGuide from '$lib/components/WelcomeGuide.svelte';
   import LandingPage from '$lib/components/LandingPage.svelte';
   import CopyIconSwap from '$lib/components/CopyIconSwap.svelte';
+  import ContextMenu from '$lib/components/ContextMenu.svelte';
+  import SiteFavicon from '$lib/components/SiteFavicon.svelte';
+  import SlidePanel from '$lib/components/SlidePanel.svelte';
+  import WidgetConnectBlock from '$lib/components/WidgetConnectBlock.svelte';
+  import ReminderForm from '$lib/components/ReminderForm.svelte';
+  import { useSlidePanel } from '$lib/useSlidePanel.svelte';
+  import { type MenuEntry, type MenuItem } from '$lib/menu';
   import ActionBell from '$lib/components/icons/ActionBell.svelte';
   import ActionEdit from '$lib/components/icons/ActionEdit.svelte';
   import ActionRead from '$lib/components/icons/ActionRead.svelte';
@@ -53,13 +60,9 @@
     Cross2,
     MoreVertical,
     Download,
-    Globe,
     ChevronDown,
     LogOut,
     BellOff,
-    Clock,
-    Calendar,
-    Mail,
     Info
   } from '$lib/components/icons/radix';
 
@@ -124,25 +127,13 @@
   let searchInput = $state<HTMLInputElement>();
   let commandTrigger = $state<HTMLButtonElement>();
   let commandPosition = $state({ top: 0, left: 0, width: 0 });
-  let extensionPanelMounted = $state(false);
-  let extensionPanelOpen = $state(false);
-  let extensionPanel = $state<HTMLElement>();
-  let extensionPanelCloseTimer: number | undefined;
-  let widgetPanelMounted = $state(false);
-  let widgetPanelOpen = $state(false);
-  let widgetPanel = $state<HTMLElement>();
-  let widgetPanelCloseTimer: number | undefined;
-  let linuxPanelMounted = $state(false);
-  let linuxPanelOpen = $state(false);
-  let linuxPanel = $state<HTMLElement>();
-  let linuxPanelCloseTimer: number | undefined;
+  const extensionPanel = useSlidePanel();
+  const widgetPanel = useSlidePanel();
+  const linuxPanel = useSlidePanel();
+  const remindersPanel = useSlidePanel();
   let detectedPlatform = $state<DesktopPlatform>(null);
   let platformCalloutOpen = $state(false);
   let platformCalloutTimer: number | undefined;
-  let remindersPanelMounted = $state(false);
-  let remindersPanelOpen = $state(false);
-  let remindersPanel = $state<HTMLElement>();
-  let remindersPanelCloseTimer: number | undefined;
   let widgetToken = $state('');
   let widgetTokenBusy = $state(false);
   let widgetTokenError = $state('');
@@ -356,6 +347,10 @@
       for (const timer of Object.values(copyResetTimers))
         window.clearTimeout(timer);
       if (platformCalloutTimer) window.clearTimeout(platformCalloutTimer);
+      extensionPanel.destroy();
+      widgetPanel.destroy();
+      linuxPanel.destroy();
+      remindersPanel.destroy();
     };
   });
   async function initialize() {
@@ -520,80 +515,68 @@
     closeModal();
     setTimeout(() => void openModal(next), 0);
   }
+  const commandActions: MenuItem[] = [
+    {
+      id: 'save',
+      label: 'save a link',
+      shortcut: 'n',
+      icon: Plus,
+      run: () => openFromCommand('bookmark')
+    },
+    {
+      id: 'collection',
+      label: 'new collection',
+      icon: FileTray,
+      run: () => openFromCommand('collection')
+    },
+    {
+      id: 'settings',
+      label: 'open settings',
+      icon: ActionSettings,
+      run: () => openFromCommand('settings')
+    }
+  ];
   function closeModal() {
     dialog?.close();
     modal = null;
   }
+  function closeOtherSlidePanels(except: ReturnType<typeof useSlidePanel>) {
+    if (except !== extensionPanel) extensionPanel.closePanel();
+    if (except !== widgetPanel) widgetPanel.closePanel();
+    if (except !== linuxPanel) linuxPanel.closePanel();
+    if (except !== remindersPanel) remindersPanel.closePanel();
+  }
   async function openExtensionPanel() {
     closeContext();
     closeReminderPopover();
-    closeRemindersPanel();
-    closeWidgetPanel();
-    closeLinuxPanel();
+    closeOtherSlidePanels(extensionPanel);
     if (modal) closeModal();
-    if (extensionPanelCloseTimer) window.clearTimeout(extensionPanelCloseTimer);
-    extensionPanelMounted = true;
-    await tick();
-    requestAnimationFrame(() => {
-      extensionPanelOpen = true;
-      extensionPanel?.focus({ preventScroll: true });
-    });
+    await extensionPanel.openPanel();
   }
   function closeExtensionPanel() {
-    extensionPanelOpen = false;
-    if (extensionPanelCloseTimer) window.clearTimeout(extensionPanelCloseTimer);
-    extensionPanelCloseTimer = window.setTimeout(() => {
-      extensionPanelMounted = false;
-      extensionPanelCloseTimer = undefined;
-    }, 350);
+    extensionPanel.closePanel();
   }
   async function openWidgetPanel() {
     closeContext();
     closeReminderPopover();
-    closeRemindersPanel();
-    closeExtensionPanel();
-    closeLinuxPanel();
+    closeOtherSlidePanels(widgetPanel);
     dismissPlatformCallout();
     if (modal) closeModal();
-    if (widgetPanelCloseTimer) window.clearTimeout(widgetPanelCloseTimer);
-    widgetPanelMounted = true;
-    await tick();
-    requestAnimationFrame(() => {
-      widgetPanelOpen = true;
-      widgetPanel?.focus({ preventScroll: true });
-    });
+    await widgetPanel.openPanel();
   }
   function closeWidgetPanel() {
-    widgetPanelOpen = false;
-    if (widgetPanelCloseTimer) window.clearTimeout(widgetPanelCloseTimer);
-    widgetPanelCloseTimer = window.setTimeout(() => {
-      widgetPanelMounted = false;
-      widgetPanelCloseTimer = undefined;
-    }, 350);
+    widgetPanel.closePanel();
   }
   async function openLinuxPanel() {
     closeContext();
     closeReminderPopover();
-    closeRemindersPanel();
-    closeExtensionPanel();
-    closeWidgetPanel();
+    closeOtherSlidePanels(linuxPanel);
     dismissPlatformCallout();
     if (modal) closeModal();
-    if (linuxPanelCloseTimer) window.clearTimeout(linuxPanelCloseTimer);
-    linuxPanelMounted = true;
-    await tick();
-    requestAnimationFrame(() => {
-      linuxPanelOpen = true;
-      linuxPanel?.focus({ preventScroll: true });
-    });
+    await linuxPanel.openPanel();
   }
   function closeLinuxPanel() {
-    linuxPanelOpen = false;
-    if (linuxPanelCloseTimer) window.clearTimeout(linuxPanelCloseTimer);
-    linuxPanelCloseTimer = window.setTimeout(() => {
-      linuxPanelMounted = false;
-      linuxPanelCloseTimer = undefined;
-    }, 350);
+    linuxPanel.closePanel();
   }
   function dismissPlatformCallout() {
     platformCalloutOpen = false;
@@ -616,25 +599,12 @@
   async function openRemindersPanel() {
     closeContext();
     closeReminderPopover();
-    closeExtensionPanel();
-    closeWidgetPanel();
-    closeLinuxPanel();
+    closeOtherSlidePanels(remindersPanel);
     if (modal) closeModal();
-    if (remindersPanelCloseTimer) window.clearTimeout(remindersPanelCloseTimer);
-    remindersPanelMounted = true;
-    await tick();
-    requestAnimationFrame(() => {
-      remindersPanelOpen = true;
-      remindersPanel?.focus({ preventScroll: true });
-    });
+    await remindersPanel.openPanel();
   }
   function closeRemindersPanel() {
-    remindersPanelOpen = false;
-    if (remindersPanelCloseTimer) window.clearTimeout(remindersPanelCloseTimer);
-    remindersPanelCloseTimer = window.setTimeout(() => {
-      remindersPanelMounted = false;
-      remindersPanelCloseTimer = undefined;
-    }, 350);
+    remindersPanel.closePanel();
   }
   async function createWidgetToken() {
     widgetTokenBusy = true;
@@ -1161,6 +1131,107 @@
     if (context) menuTrigger?.focus();
     context = null;
   }
+  let contextEntries = $derived.by((): MenuEntry[] => {
+    const bookmark = context?.bookmark;
+    if (bookmark) {
+      return [
+        {
+          id: 'open',
+          label: 'open bookmark',
+          shortcut: 'o',
+          icon: ArrowUpRight,
+          run: () => {
+            recordOpen(bookmark.id);
+            window.open(bookmark.url, '_blank', 'noopener,noreferrer');
+            closeContext();
+          }
+        },
+        {
+          id: 'edit',
+          label: 'edit bookmark',
+          shortcut: 'e',
+          icon: ActionEdit,
+          run: () => openModal('bookmark', bookmark)
+        },
+        {
+          id: 'reminder',
+          label: () => (bookmark.reminderAt ? 'edit reminder' : 'set reminder'),
+          shortcut: 'r',
+          icon: ActionBell,
+          run: () => openModal('reminder', bookmark)
+        },
+        {
+          id: 'pin',
+          label: () =>
+            flags[bookmark.id]?.pinned ? 'unpin bookmark' : 'pin bookmark',
+          shortcut: 'p',
+          icon: Pin,
+          run: () => toggleFlag(bookmark.id, 'pinned')
+        },
+        {
+          id: 'read',
+          label: () =>
+            flags[bookmark.id]?.read ? 'mark as unread' : 'mark as read',
+          shortcut: 'm',
+          icon: ActionRead,
+          run: () => toggleFlag(bookmark.id, 'read')
+        },
+        {
+          id: 'widget',
+          label: () =>
+            bookmark.widgetEnabled
+              ? 'remove from mac widget'
+              : 'add to mac widget',
+          shortcut: 'w',
+          icon: GuideLauncher,
+          visible: () => Boolean(data.session),
+          run: () => void toggleWidgetBookmark(bookmark)
+        },
+        { id: 'bookmark-sep', separator: true },
+        {
+          id: 'delete',
+          label: 'delete bookmark',
+          shortcut: 'd',
+          icon: DeleteTrash,
+          danger: true,
+          run: () => {
+            selected = [bookmark.id];
+            void openModal('delete');
+          }
+        }
+      ];
+    }
+    return [
+      {
+        id: 'open-library',
+        label: 'open chikota',
+        icon: BookmarkIcon,
+        run: () => {
+          navigate('all');
+          closeContext();
+        }
+      },
+      {
+        id: 'save',
+        label: 'save a link',
+        icon: Plus,
+        run: () => openModal('bookmark')
+      },
+      {
+        id: 'collection',
+        label: 'new collection',
+        icon: FileTray,
+        run: () => openModal('collection')
+      },
+      { id: 'canvas-sep', separator: true },
+      {
+        id: 'settings',
+        label: 'appearance & settings',
+        icon: ActionSettings,
+        run: () => openModal('settings')
+      }
+    ];
+  });
   function contextKeys(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -1581,11 +1652,7 @@
                           selectBookmark(b.id);
                       }}
                       ><span class="site-letter"
-                        ><Globe size={18} /><img
-                          src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
-                          alt=""
-                          onerror={(event) => event.currentTarget.remove()}
-                        /></span
+                        ><SiteFavicon url={b.url} size={18} /></span
                       >
                       <div>
                         <strong>{b.title}</strong><small>{domain(b.url)}</small>
@@ -1811,11 +1878,7 @@
                             class="site-letter"
                             class:show-check={selectMode ||
                               selected.includes(b.id)}
-                            ><Globe size={18} /><img
-                              src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
-                              alt=""
-                              onerror={(event) => event.currentTarget.remove()}
-                            /></span
+                            ><SiteFavicon url={b.url} size={18} /></span
                           ><input
                             class="row-check"
                             class:check-visible={selectMode ||
@@ -1993,7 +2056,7 @@
         aria-label="install the linux desktop widget"
         aria-haspopup="dialog"
         aria-controls="linux-widget-panel"
-        aria-expanded={linuxPanelOpen}
+        aria-expanded={linuxPanel.open}
         title="linux desktop widget"
         onclick={() => void openLinuxPanel()}
       >
@@ -2020,7 +2083,7 @@
         aria-label="install the mac desktop widget"
         aria-haspopup="dialog"
         aria-controls="widget-panel"
-        aria-expanded={widgetPanelOpen}
+        aria-expanded={widgetPanel.open}
         title="mac desktop widget"
         onclick={() => void openWidgetPanel()}
       >
@@ -2029,26 +2092,16 @@
     </span>
   </div>
 
-  {#if extensionPanelMounted}<div
-      bind:this={extensionPanel}
+  {#if extensionPanel.mounted}<SlidePanel
       id="extension-panel"
-      class="extension-panel t-panel-slide"
-      data-open={extensionPanelOpen}
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="extension-panel-title"
-      tabindex="-1"
-      onkeydown={(event) => {
-        if (event.key === 'Escape') closeExtensionPanel();
-      }}
+      labelledBy="extension-panel-title"
+      title="browser extension"
+      icon={BrowserExtension}
+      open={extensionPanel.open}
+      closeLabel="close browser extension panel"
+      bind:element={extensionPanel.element}
+      onclose={closeExtensionPanel}
     >
-      <div class="extension-panel-heading">
-        <BrowserExtension size={18} /><span>browser extension</span><button
-          class="icon-button small"
-          aria-label="close browser extension panel"
-          onclick={closeExtensionPanel}><Cross2 size={14} /></button
-        >
-      </div>
       <h2 id="extension-panel-title">keep it in one click.</h2>
       <p class="dialog-description">
         a small extension for the things you find along the way.
@@ -2082,28 +2135,19 @@
         href="/chikota-extension.zip"
         download><Download />download extension</a
       >
-    </div>{/if}
+    </SlidePanel>{/if}
 
-  {#if widgetPanelMounted}<div
-      bind:this={widgetPanel}
+  {#if widgetPanel.mounted}<SlidePanel
       id="widget-panel"
-      class="extension-panel desktop-widget-panel widget-panel t-panel-slide"
-      data-open={widgetPanelOpen}
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="widget-panel-title"
-      tabindex="-1"
-      onkeydown={(event) => {
-        if (event.key === 'Escape') closeWidgetPanel();
-      }}
+      class="desktop-widget-panel widget-panel"
+      labelledBy="widget-panel-title"
+      title="mac desktop widget"
+      icon={GuideLauncher}
+      open={widgetPanel.open}
+      closeLabel="close mac desktop widget panel"
+      bind:element={widgetPanel.element}
+      onclose={closeWidgetPanel}
     >
-      <div class="extension-panel-heading">
-        <GuideLauncher size={18} /><span>mac desktop widget</span><button
-          class="icon-button small"
-          aria-label="close mac desktop widget panel"
-          onclick={closeWidgetPanel}><Cross2 size={14} /></button
-        >
-      </div>
       <h2 id="widget-panel-title">keep it close to home.</h2>
       <p class="dialog-description">
         reminders, pinned links, and recent opens stay available from your
@@ -2126,57 +2170,30 @@
         The connection code links your account; macOS installs the widget with
         the companion app.
       </p>
-      {#if data.session}
-        {#if widgetToken}<button
-            class="widget-token"
-            aria-label={copiedTargets.includes('widget-token')
-              ? 'mac connection code copied'
-              : 'copy mac connection code'}
-            onclick={copyWidgetToken}
-            ><code>{widgetToken}</code><CopyIconSwap
-              copied={copiedTargets.includes('widget-token')}
-              size={14}
-            /></button
-          ><small class="widget-token-note"
-            >shown once. paste this code into the mac app.</small
-          >{:else}<button
-            class="secondary-button widget-connect-action"
-            disabled={widgetTokenBusy}
-            onclick={createWidgetToken}
-            >{widgetTokenBusy
-              ? 'creating…'
-              : 'create mac connection code'}</button
-          >{/if}
-        <p class="form-error" role="alert">{widgetTokenError}</p>
-      {:else}<button
-          class="secondary-button widget-connect-action"
-          onclick={() => authClient.signIn.social({ provider: 'google' })}
-          >sign in to connect the widget</button
-        >
-      {/if}
-    </div>{/if}
+      <WidgetConnectBlock
+        signedIn={Boolean(data.session)}
+        token={widgetToken}
+        busy={widgetTokenBusy}
+        error={widgetTokenError}
+        copied={copiedTargets.includes('widget-token')}
+        platform="mac"
+        oncreate={() => void createWidgetToken()}
+        oncopy={() => void copyWidgetToken()}
+        onsignin={() => authClient.signIn.social({ provider: 'google' })}
+      />
+    </SlidePanel>{/if}
 
-  {#if linuxPanelMounted}<div
-      bind:this={linuxPanel}
+  {#if linuxPanel.mounted}<SlidePanel
       id="linux-widget-panel"
-      class="extension-panel desktop-widget-panel widget-panel t-panel-slide"
-      data-open={linuxPanelOpen}
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="linux-widget-panel-title"
-      tabindex="-1"
-      onkeydown={(event) => {
-        if (event.key === 'Escape') closeLinuxPanel();
-      }}
+      class="desktop-widget-panel widget-panel"
+      labelledBy="linux-widget-panel-title"
+      title="linux desktop widget"
+      icon={UbuntuWidgetLauncher}
+      open={linuxPanel.open}
+      closeLabel="close linux desktop widget panel"
+      bind:element={linuxPanel.element}
+      onclose={closeLinuxPanel}
     >
-      <div class="extension-panel-heading">
-        <UbuntuWidgetLauncher size={18} /><span>linux desktop widget</span
-        ><button
-          class="icon-button small"
-          aria-label="close linux desktop widget panel"
-          onclick={closeLinuxPanel}><Cross2 size={14} /></button
-        >
-      </div>
       <h2 id="linux-widget-panel-title">keep it close on linux.</h2>
       <p class="dialog-description">
         a lightweight desktop companion for pinned links, reminders, and recent
@@ -2198,53 +2215,29 @@
         href="/chikota-linux-widget.zip"
         download><Download />download linux widget</a
       >
-      {#if data.session}
-        {#if widgetToken}<button
-            class="widget-token linux-widget-token"
-            aria-label={copiedTargets.includes('widget-token')
-              ? 'connection code copied'
-              : 'copy connection code'}
-            onclick={copyWidgetToken}
-            ><code>{widgetToken}</code><CopyIconSwap
-              copied={copiedTargets.includes('widget-token')}
-              size={14}
-            /></button
-          ><small class="widget-token-note"
-            >shown once. paste this code into the linux widget.</small
-          >{:else}<button
-            class="secondary-button widget-connect-action linux-connect-action"
-            disabled={widgetTokenBusy}
-            onclick={createWidgetToken}
-            >{widgetTokenBusy ? 'creating…' : 'create connection code'}</button
-          >{/if}
-        <p class="form-error" role="alert">{widgetTokenError}</p>
-      {:else}<button
-          class="secondary-button widget-connect-action linux-connect-action"
-          onclick={() => authClient.signIn.social({ provider: 'google' })}
-          >sign in to connect the widget</button
-        >
-      {/if}
-    </div>{/if}
+      <WidgetConnectBlock
+        signedIn={Boolean(data.session)}
+        token={widgetToken}
+        busy={widgetTokenBusy}
+        error={widgetTokenError}
+        copied={copiedTargets.includes('widget-token')}
+        platform="linux"
+        oncreate={() => void createWidgetToken()}
+        oncopy={() => void copyWidgetToken()}
+        onsignin={() => authClient.signIn.social({ provider: 'google' })}
+      />
+    </SlidePanel>{/if}
 
-  {#if remindersPanelMounted}<div
-      bind:this={remindersPanel}
-      class="extension-panel reminders-panel t-panel-slide"
-      data-open={remindersPanelOpen}
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="reminders-panel-title"
-      tabindex="-1"
-      onkeydown={(event) => {
-        if (event.key === 'Escape') closeRemindersPanel();
-      }}
+  {#if remindersPanel.mounted}<SlidePanel
+      class="reminders-panel"
+      labelledBy="reminders-panel-title"
+      title="reminders"
+      icon={ActionBell}
+      open={remindersPanel.open}
+      closeLabel="close reminders panel"
+      bind:element={remindersPanel.element}
+      onclose={closeRemindersPanel}
     >
-      <div class="extension-panel-heading">
-        <ActionBell size={18} /><span>reminders</span><button
-          class="icon-button small"
-          aria-label="close reminders panel"
-          onclick={closeRemindersPanel}><Cross2 size={14} /></button
-        >
-      </div>
       <h2 id="reminders-panel-title">reminders</h2>
       <p class="dialog-description">
         upcoming, completed, and canceled reminders in one place.
@@ -2271,11 +2264,7 @@
             >
               <div class="reminder-bookmark-cell" role="cell">
                 <span class="reminder-favicon"
-                  >{domain(bookmark.url).slice(0, 1).toUpperCase()}<img
-                    src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(bookmark.url)}&sz=32`}
-                    alt=""
-                    onerror={(event) => event.currentTarget.remove()}
-                  /></span
+                  ><SiteFavicon url={bookmark.url} size={16} /></span
                 >
                 <span
                   ><strong title={bookmark.title}>{bookmark.title}</strong
@@ -2312,7 +2301,7 @@
           <strong>no reminders yet.</strong>
           <p>use the bell on a bookmark to bring it back later.</p>
         </div>{/if}
-    </div>{/if}
+    </SlidePanel>{/if}
 
   {#if selectedCollections.length}<div
       class="selection-toolbar"
@@ -2408,135 +2397,34 @@
         >
       </div>
       <p>{reminderTarget.title}</p>
-      <form class="reminder-popover-form" onsubmit={saveReminder}>
-        <label
-          >date and time<input
-            type="datetime-local"
-            bind:value={reminderWhen}
-            min={reminderInputValue(new Date())}
-            required
-          /></label
-        ><label
-          >email <span>optional</span><input
-            type="email"
-            bind:value={reminderEmail}
-            placeholder="browser notification"
-            autocomplete="email"
-          /></label
-        >
-        <p class="form-error" role="alert">{formError}</p>
-        <div class="reminder-popover-actions">
-          {#if reminderTarget.reminderAt && reminderStatus(reminderTarget) === 'active'}<button
-              type="button"
-              class="plain-button danger-text"
-              onclick={() => {
-                void cancelReminder(reminderTarget!);
-                closeReminderPopover();
-              }}>cancel reminder</button
-            >{/if}<button class="primary-button" disabled={saving}
-            >{saving ? 'saving…' : 'set reminder'}<SaveCloud
-              size={14}
-            /></button
-          >
-        </div>
-      </form>
+      <ReminderForm
+        variant="popover"
+        bind:when={reminderWhen}
+        bind:email={reminderEmail}
+        min={reminderInputValue(new Date())}
+        error={formError}
+        {saving}
+        showCancelReminder={Boolean(
+          reminderTarget.reminderAt &&
+          reminderStatus(reminderTarget) === 'active'
+        )}
+        onsubmit={saveReminder}
+        oncancelReminder={() => {
+          void cancelReminder(reminderTarget!);
+          closeReminderPopover();
+        }}
+      />
     </div>
   {/if}
   {#if context}
-    <button
-      class="context-backdrop"
-      aria-label="close context menu"
-      onclick={closeContext}
-      oncontextmenu={(e) => {
-        e.preventDefault();
-        closeContext();
-      }}
-      tabindex="-1"
-    ></button>
-    <div
-      bind:this={contextPanel}
-      class="context-menu"
-      role="menu"
-      tabindex="-1"
+    <ContextMenu
+      entries={contextEntries}
+      x={context.x}
+      y={context.y}
+      bind:panel={contextPanel}
+      onclose={closeContext}
       onkeydown={contextKeys}
-      style:left={`${context.x}px`}
-      style:top={`${context.y}px`}
-    >
-      {#if context.bookmark}{@const b = context.bookmark}<button
-          role="menuitem"
-          data-shortcut="o"
-          onclick={() => {
-            recordOpen(b.id);
-            window.open(b.url, '_blank', 'noopener,noreferrer');
-            closeContext();
-          }}
-          ><ArrowUpRight /><span>open bookmark</span><kbd><KeyboardDown />O</kbd
-          ></button
-        ><button
-          role="menuitem"
-          data-shortcut="e"
-          onclick={() => openModal('bookmark', b)}
-          ><ActionEdit /><span>edit bookmark</span><kbd><KeyboardDown />E</kbd
-          ></button
-        ><button
-          role="menuitem"
-          data-shortcut="r"
-          onclick={() => openModal('reminder', b)}
-          ><ActionBell /><span
-            >{b.reminderAt ? 'edit reminder' : 'set reminder'}</span
-          ><kbd><KeyboardDown />R</kbd></button
-        ><button
-          role="menuitem"
-          data-shortcut="p"
-          onclick={() => toggleFlag(b.id, 'pinned')}
-          ><Pin /><span
-            >{flags[b.id]?.pinned ? 'unpin bookmark' : 'pin bookmark'}</span
-          ><kbd><KeyboardDown />P</kbd></button
-        ><button
-          role="menuitem"
-          data-shortcut="m"
-          onclick={() => toggleFlag(b.id, 'read')}
-          ><ActionRead /><span
-            >{flags[b.id]?.read ? 'mark as unread' : 'mark as read'}</span
-          ><kbd><KeyboardDown />M</kbd></button
-        >{#if data.session}<button
-            role="menuitem"
-            data-shortcut="w"
-            onclick={() => void toggleWidgetBookmark(b)}
-            ><GuideLauncher /><span
-              >{b.widgetEnabled
-                ? 'remove from mac widget'
-                : 'add to mac widget'}</span
-            ><kbd><KeyboardDown />W</kbd></button
-          >{/if}
-        <hr />
-        <button
-          role="menuitem"
-          class="danger-text"
-          data-shortcut="d"
-          onclick={() => {
-            selected = [b.id];
-            void openModal('delete');
-          }}
-          ><DeleteTrash /><span>delete bookmark</span><kbd
-            ><KeyboardDown />D</kbd
-          ></button
-        >{:else}<button
-          role="menuitem"
-          onclick={() => {
-            navigate('all');
-            closeContext();
-          }}><BookmarkIcon />open chikota</button
-        ><button role="menuitem" onclick={() => openModal('bookmark')}
-          ><Plus />save a link</button
-        ><button role="menuitem" onclick={() => openModal('collection')}
-          ><FileTray />new collection</button
-        >
-        <hr />
-        <button role="menuitem" onclick={() => openModal('settings')}
-          ><ActionSettings />appearance & settings</button
-        >{/if}
-    </div>
+    />
   {/if}
 
   <dialog
@@ -2575,15 +2463,17 @@
             </div>
             <div class="command-results">
               <p>actions</p>
-              <button onclick={() => openFromCommand('bookmark')}
-                ><Plus />save a link<span class="single-shortcut"
-                  ><KeyboardDown />N</span
-                ></button
-              ><button onclick={() => openFromCommand('collection')}
-                ><FileTray />new collection</button
-              ><button onclick={() => openFromCommand('settings')}
-                ><ActionSettings />open settings</button
-              >
+              {#each commandActions as action (action.id)}
+                {@const Icon = action.icon}
+                <button onclick={action.run}
+                  >{#if Icon}<Icon />{/if}{typeof action.label === 'function'
+                    ? action.label()
+                    : action.label}{#if action.shortcut}<span
+                      class="single-shortcut"
+                      ><KeyboardDown />{action.shortcut.toUpperCase()}</span
+                    >{/if}</button
+                >
+              {/each}
               {#if commandBookmarks.length}
                 <p>bookmarks</p>
                 {#each commandBookmarks as bookmark}<a
@@ -2595,11 +2485,7 @@
                       closeModal();
                     }}
                     ><span class="command-favicon"
-                      ><Globe size={16} /><img
-                        src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(bookmark.url)}&sz=32`}
-                        alt=""
-                        onerror={(event) => event.currentTarget.remove()}
-                      /></span
+                      ><SiteFavicon url={bookmark.url} size={16} /></span
                     ><strong class="command-bookmark-title"
                       >{bookmark.title}</strong
                     ><small class="command-bookmark-url">{bookmark.url}</small
@@ -2719,46 +2605,23 @@
           <p class="dialog-description reminder-description">
             set a reminder for <strong>{reminderTarget.title}</strong>.
           </p>
-          <form onsubmit={saveReminder}>
-            <label
-              >date and time<input
-                type="datetime-local"
-                bind:value={reminderWhen}
-                min={reminderInputValue(new Date())}
-                required
-              /></label
-            ><label
-              >email <span>optional</span><input
-                type="email"
-                bind:value={reminderEmail}
-                placeholder="leave empty for a browser notification"
-                autocomplete="email"
-              /></label
-            >
-            <div class="delivery-note">
-              {#if reminderEmail.trim()}<Mail />scheduled email only{:else}<ActionBell
-                />browser notification with a soft sound{/if}
-            </div>
-            <p class="form-error" role="alert">{formError}</p>
-            <div class="dialog-actions">
-              {#if reminderTarget.reminderAt && reminderStatus(reminderTarget) === 'active'}<button
-                  type="button"
-                  class="secondary-button delete-collection"
-                  onclick={() => {
-                    void cancelReminder(reminderTarget!);
-                    closeModal();
-                  }}>cancel reminder</button
-                >{/if}
-              <button
-                type="button"
-                class="secondary-button"
-                disabled={saving}
-                onclick={closeModal}>close</button
-              ><button class="primary-button" disabled={saving}
-                >{saving ? 'saving…' : 'set reminder'}<SaveCloud /></button
-              >
-            </div>
-          </form>
+          <ReminderForm
+            bind:when={reminderWhen}
+            bind:email={reminderEmail}
+            min={reminderInputValue(new Date())}
+            error={formError}
+            {saving}
+            showCancelReminder={Boolean(
+              reminderTarget.reminderAt &&
+              reminderStatus(reminderTarget) === 'active'
+            )}
+            onsubmit={saveReminder}
+            oncancel={closeModal}
+            oncancelReminder={() => {
+              void cancelReminder(reminderTarget!);
+              closeModal();
+            }}
+          />
         {:else if modal === 'settings'}<div class="settings-shell">
             <nav class="settings-tabs" aria-label="settings sections">
               <button
@@ -2802,7 +2665,7 @@
                 </div>
                 <p class="settings-note">
                   {data.session
-                    ? 'bookmarks sync to your account. collections, pins, and reading status are stored on this device.'
+                    ? 'bookmarks, pins, and reading status sync to your account. collections are stored on this device.'
                     : 'your links are saved in this browser. export a copy to keep a backup.'}
                 </p>
                 <button class="settings-row" onclick={exportLibrary}
