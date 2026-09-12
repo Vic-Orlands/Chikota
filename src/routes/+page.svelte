@@ -2845,7 +2845,7 @@
       onfocusout={hideSelectionTooltip}
     >
       <div
-        class="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 [z-index:1] [&.warm]:[will-change:transform] motion-safe:[&.warm]:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
+        class="pointer-events-none absolute bottom-[calc(100%+3px)] left-0 [z-index:1] [&.warm]:[will-change:transform] motion-safe:[&.warm]:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
         class:warm={selectionTooltipWarm}
         style:transform={`translateX(${selectionTooltip.x}px)`}
       >
@@ -2861,13 +2861,13 @@
             >{selectionTooltip.label}</span
           >
           <svg
-            class="-mt-px block h-[9px] w-6 overflow-visible"
-            viewBox="0 0 24 9"
+            class="-mt-px block h-2.5 w-[18px] overflow-visible"
+            viewBox="0 0 18 10"
             fill="var(--card)"
             aria-hidden="true"
           >
             <path
-              d="M0 0C7 0 8.4 4.8 10.4 6.4A2.2 2.2 0 0 1 13.6 6.4C15.6 4.8 17 0 24 0Z"
+              d="M0 0C5 0 6.2 2.4 7.4 7.2A1.6 1.6 0 0 1 10.6 7.2C11.8 2.4 13 0 18 0Z"
             ></path>
           </svg>
         </div>
@@ -3128,18 +3128,18 @@
               /><kbd>esc</kbd>
             </div>
             <div
-              class="command-results [max-height:min(430px,_65dvh)] overflow-y-auto [padding:7px] [&>p]:[margin:8px_9px_4px] [&>p]:[color:var(--muted-foreground)] [&>p]:[font-size:9px] [&>p]:[font-weight:550] [&>p]:[letter-spacing:0.08em] [&>p]:lowercase [&>button]:flex [&>button]:items-center [&>button]:[gap:var(--icon-text-gap)] [&>button]:w-full [&>button]:[min-height:38px] [&>button]:[padding:7px_9px] [&>button]:border-0 [&>button]:[border-radius:5px] [&>button]:bg-none [&>button]:[color:var(--foreground)] [&>button]:text-left [&>button]:[font-size:var(--modal-body-font-size)] [&>a]:flex [&>a]:items-center [&>a]:[gap:var(--icon-text-gap)] [&>a]:w-full [&>a]:[min-height:38px] [&>a]:[padding:7px_9px] [&>a]:border-0 [&>a]:[border-radius:5px] [&>a]:bg-none [&>a]:[color:var(--foreground)] [&>a]:text-left [&>a]:[font-size:var(--modal-body-font-size)] [&>button:hover]:outline-0 [&>button:hover]:[background:var(--secondary)] [&>button:focus-visible]:outline-0 [&>button:focus-visible]:[background:var(--secondary)] [&>a:hover]:outline-0 [&>a:hover]:[background:var(--secondary)] [&>a:focus-visible]:outline-0 [&>a:focus-visible]:[background:var(--secondary)] [&>button>span]:[margin-left:auto] [&>button>span]:[color:var(--muted-foreground)] [&>a>svg]:[margin-left:auto] [&>a>svg]:[color:var(--muted-foreground)] [&_.single-shortcut]:inline-flex [&_.single-shortcut]:items-center [&_.single-shortcut]:[gap:var(--icon-text-gap)] [&_strong]:block [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&_strong]:[font-size:var(--modal-body-font-size)] [&_strong]:font-medium [&_strong]:[line-height:1.4] [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)] [&_small]:[line-height:1.4]"
+              class="command-results [max-height:min(430px,_65dvh)] overflow-y-auto [padding:7px] [&>p]:[margin:8px_9px_4px] [&>p]:[color:var(--muted-foreground)] [&>p]:[font-size:9px] [&>p]:[font-weight:550] [&>p]:[letter-spacing:0.08em] [&>p]:lowercase [&>button]:flex [&>button]:items-center [&>button]:[gap:var(--icon-text-gap)] [&>button]:w-full [&>button]:[min-height:38px] [&>button]:[padding:7px_9px] [&>button]:border-0 [&>button]:[border-radius:5px] [&>button]:bg-none [&>button]:[color:var(--foreground)] [&>button]:text-left [&>button]:[font-size:var(--modal-body-font-size)] [&>button]:leading-none [&>button>svg]:block [&>button>svg]:shrink-0 [&>a]:flex [&>a]:items-center [&>a]:[gap:var(--icon-text-gap)] [&>a]:w-full [&>a]:[min-height:38px] [&>a]:[padding:7px_9px] [&>a]:border-0 [&>a]:[border-radius:5px] [&>a]:bg-none [&>a]:[color:var(--foreground)] [&>a]:text-left [&>a]:[font-size:var(--modal-body-font-size)] [&>button:hover]:outline-0 [&>button:hover]:[background:var(--secondary)] [&>button:focus-visible]:outline-0 [&>button:focus-visible]:[background:var(--secondary)] [&>a:hover]:outline-0 [&>a:hover]:[background:var(--secondary)] [&>a:focus-visible]:outline-0 [&>a:focus-visible]:[background:var(--secondary)] [&>button>.single-shortcut]:ml-auto [&>button>.single-shortcut]:[color:var(--muted-foreground)] [&>a>svg]:[margin-left:auto] [&>a>svg]:[color:var(--muted-foreground)] [&_.single-shortcut]:inline-flex [&_.single-shortcut]:items-center [&_.single-shortcut]:[gap:var(--icon-text-gap)] [&_strong]:block [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&_strong]:[font-size:var(--modal-body-font-size)] [&_strong]:font-medium [&_strong]:[line-height:1.4] [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)] [&_small]:[line-height:1.4]"
             >
               <p>actions</p>
               <button onclick={() => openFromCommand('bookmark')}
-                ><Plus />save a link<span
+                ><Plus /><span>save a link</span><span
                   class="single-shortcut"
                   aria-label="cmd+n"><CommandKey size={12} />N</span
                 ></button
               ><button onclick={() => openFromCommand('collection')}
-                ><FileTray />new collection</button
+                ><FileTray /><span>new collection</span></button
               ><button onclick={() => openFromCommand('settings')}
-                ><ActionSettings />open settings</button
+                ><ActionSettings /><span>open settings</span></button
               >
               {#if commandBookmarks.length}
                 <p>bookmarks</p>
