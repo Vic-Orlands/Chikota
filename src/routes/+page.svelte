@@ -112,6 +112,7 @@
   let selectionTooltipResetTimer: number | undefined;
   let listToolsOpen = $state(false);
   let pinnedPanelOpen = $state(false);
+  let pinnedPageOrigin = $state(0);
   let selectedBookmark = $derived(
     selected.length === 1
       ? $bookmarks.find((bookmark) => bookmark.id === selected[0])
@@ -1721,6 +1722,8 @@
   <LandingPage onenter={enterLibrary} />
 {:else if view === 'library'}
   <div
+    class:pinned-panel-open={pinnedPanelOpen}
+    style:transform-origin={`center ${pinnedPageOrigin}px`}
     class="reading-column [width:min(var(--reading-max),_calc(100%_-_40px))] [max-width:var(--reading-max)] [margin:0_auto] [min-height:100dvh] min-w-0 [border-inline:1px_solid_var(--border)] [&>main]:min-w-0 [&>main]:max-w-full max-[760px]:[width:calc(100%_-_28px)] max-[520px]:[width:calc(100%_-_20px)]"
   >
     <main class="pb-40 max-[520px]:pb-24">
@@ -1739,7 +1742,13 @@
           <div
             class="header-actions relative flex items-center justify-end [gap:var(--icon-icon-gap)] [&_.icon-button:focus-visible]:[outline:2px_solid_var(--accent-text)] [&_.icon-button:focus-visible]:[outline-offset:2px] max-[520px]:[grid-column:2] max-[520px]:[grid-row:1]"
           >
-            <PanelDialog.Root bind:open={pinnedPanelOpen}>
+            <PanelDialog.Root
+              bind:open={pinnedPanelOpen}
+              onOpenChange={(open) => {
+                if (open)
+                  pinnedPageOrigin = window.scrollY + window.innerHeight / 2;
+              }}
+            >
               <PanelDialog.Trigger
                 class="mobile-pinned-trigger"
                 aria-label="show pinned bookmarks"
@@ -3771,6 +3780,73 @@
     color: var(--foreground);
     border-left: 1px solid var(--border);
     box-shadow: var(--shadow);
+  }
+
+  .reading-column {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .reading-column.pinned-panel-open {
+    transform: translateX(12px) scale(0.97);
+    transition-duration: 280ms;
+  }
+
+  :global(.mobile-pinned-panel[data-state='open']) {
+    animation: pinned-panel-open 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  :global(.mobile-pinned-panel[data-state='closed']) {
+    pointer-events: none;
+    animation: pinned-panel-close 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  :global(.pinned-panel-overlay[data-state='closed']) {
+    pointer-events: none;
+    animation: pinned-overlay-close 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes pinned-panel-open {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pinned-panel-close {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+
+  @keyframes pinned-overlay-close {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reading-column {
+      transition: none;
+    }
+
+    .reading-column.pinned-panel-open {
+      transform: none;
+    }
+
+    :global(.mobile-pinned-panel[data-state]),
+    :global(.pinned-panel-overlay[data-state]) {
+      animation: none;
+    }
   }
 
   .pinned-panel-heading {
