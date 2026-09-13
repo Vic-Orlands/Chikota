@@ -2545,7 +2545,7 @@
   ></div>
 
   {#if !selectedCollections.length && !selected.length}<nav
-      class="library-tabs floating-library-tabs fixed grid [grid-template-columns:max-content_max-content] p-0 [border:1px_solid_var(--border)] [border-radius:22px] [background:var(--sidebar)] overflow-hidden [z-index:30] [left:50%] [bottom:30px] [min-height:42px] [transform:translateX(-50%)] [box-shadow:var(--shadow)] [&.floating-library-tabs_button]:[min-height:40px] [&.floating-library-tabs_button]:[font-size:var(--section-label-font-size)] [&_button]:relative [&_button]:[z-index:1] [&_button]:inline-flex [&_button]:items-center [&_button]:justify-center [&_button]:[gap:var(--icon-text-gap)] [&_button]:min-w-0 [&_button]:[min-height:28px] [&_button]:[padding:4px_9px] [&_button]:bg-none [&_button]:border-0 [&_button]:[border-radius:21px] [&_button]:[font-size:11px] [&_button]:[line-height:1] [&_button]:[color:var(--muted-foreground)] [&_button]:whitespace-nowrap [&_button_svg]:block [&_button.active]:[color:var(--foreground)] [&_button.active_svg]:[fill:currentColor] max-[760px]:[&_button]:[padding:4px_9px] max-[520px]:[grid-template-columns:repeat(4,_max-content)] max-[520px]:[bottom:max(10px,_env(safe-area-inset-bottom))] motion-safe:[transform-origin:center_bottom] motion-safe:[animation:selection-dock-in_360ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[will-change:transform,_opacity]"
+      class="library-tabs floating-library-tabs fixed grid [grid-template-columns:max-content_max-content] p-0 [border:1px_solid_var(--border)] [border-radius:22px] [background:var(--sidebar)] overflow-hidden [z-index:30] [left:50%] [bottom:30px] [min-height:42px] [transform:translateX(-50%)] [box-shadow:var(--shadow)] [&.floating-library-tabs_button]:[min-height:40px] [&.floating-library-tabs_button]:[font-size:var(--section-label-font-size)] [&_button]:relative [&_button]:[z-index:1] [&_button]:inline-flex [&_button]:items-center [&_button]:justify-center [&_button]:[gap:var(--icon-text-gap)] [&_button]:min-w-0 [&_button]:[min-height:28px] [&_button]:[padding:4px_9px] [&_button]:bg-none [&_button]:border-0 [&_button]:[border-radius:21px] [&_button]:[font-size:11px] [&_button]:[line-height:1] [&_button]:[color:var(--muted-foreground)] [&_button]:whitespace-nowrap [&_button_svg]:block [&_button.active]:[color:var(--foreground)] [&_button.active_svg]:[fill:currentColor] max-[760px]:[&_button]:[padding:4px_9px] max-[520px]:[bottom:max(10px,_env(safe-area-inset-bottom))] motion-safe:[transform-origin:center_bottom] motion-safe:[animation:selection-dock-in_360ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[will-change:transform,_opacity]"
       aria-label="library"
     >
       <span
@@ -2570,26 +2570,6 @@
         >{#if section !== 'opened'}<BookmarkFilled
             size={14}
           />{:else}<BookmarkIcon size={14} />{/if}bookmarks</button
-      >
-      <button
-        type="button"
-        class="hidden! text-[#e09a22]! max-[520px]:inline-flex!"
-        aria-label="install the linux desktop widget"
-        aria-haspopup="dialog"
-        aria-controls="linux-widget-panel"
-        aria-expanded={linuxPanelOpen}
-        onclick={() => void openLinuxPanel()}
-        ><UbuntuWidgetLauncher size={18} /><span>linux</span></button
-      >
-      <button
-        type="button"
-        class="hidden! text-[#0b84ff]! max-[520px]:inline-flex!"
-        aria-label="install the mac desktop widget"
-        aria-haspopup="dialog"
-        aria-controls="widget-panel"
-        aria-expanded={widgetPanelOpen}
-        onclick={() => void openWidgetPanel()}
-        ><MacWidgetLauncher size={18} /><span>mac</span></button
       >
     </nav>{/if}
 
@@ -4656,10 +4636,6 @@
   }
 
   @media (max-width: 520px) {
-    .floating-library-tabs {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
     .collection-grid {
       grid-auto-columns: 50%;
     }
