@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { fly } from 'svelte/transition';
-  import { DropdownMenu } from 'bits-ui';
+  import { Dialog as PanelDialog, DropdownMenu } from 'bits-ui';
   import { replaceState } from '$app/navigation';
   import { bookmarks } from '$lib/stores/bookmarks';
   import {
@@ -111,6 +111,12 @@
   let selectionTooltipWarmFrame: number | undefined;
   let selectionTooltipResetTimer: number | undefined;
   let listToolsOpen = $state(false);
+  let pinnedPanelOpen = $state(false);
+  let selectedBookmark = $derived(
+    selected.length === 1
+      ? $bookmarks.find((bookmark) => bookmark.id === selected[0])
+      : undefined
+  );
   let listToolsTrigger = $state<HTMLButtonElement>();
   let selectionPinned = $derived(
     selected.length > 0 && selected.every((id) => flags[id]?.pinned)
@@ -1733,6 +1739,58 @@
           <div
             class="header-actions relative flex items-center justify-end [gap:var(--icon-icon-gap)] [&_.icon-button:focus-visible]:[outline:2px_solid_var(--accent-text)] [&_.icon-button:focus-visible]:[outline-offset:2px] max-[520px]:[grid-column:2] max-[520px]:[grid-row:1]"
           >
+            <PanelDialog.Root bind:open={pinnedPanelOpen}>
+              <PanelDialog.Trigger
+                class="mobile-pinned-trigger"
+                aria-label="show pinned bookmarks"
+                ><Pin size={18} /></PanelDialog.Trigger
+              >
+              <PanelDialog.Portal>
+                <PanelDialog.Overlay class="pinned-panel-overlay" />
+                <PanelDialog.Content class="mobile-pinned-panel">
+                  <div class="pinned-panel-heading">
+                    <PanelDialog.Title>pinned bookmarks</PanelDialog.Title>
+                    <PanelDialog.Close aria-label="close pinned bookmarks"
+                      ><Cross2 /></PanelDialog.Close
+                    >
+                  </div>
+                  <PanelDialog.Description class="sr-only"
+                    >your pinned links, ready to open.</PanelDialog.Description
+                  >
+                  {#if pinned.length}
+                    <ul class="mobile-pinned-list">
+                      {#each pinned as bookmark (bookmark.id)}
+                        <li>
+                          <a
+                            href={bookmark.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onclick={() => recordOpen(bookmark.id)}
+                          >
+                            <Globe size={18} />
+                            <span
+                              ><strong>{bookmark.title}</strong><small
+                                >{bookmark.url}</small
+                              ></span
+                            >
+                          </a>
+                          <button
+                            aria-label={`unpin ${bookmark.title}`}
+                            onclick={() => toggleFlag(bookmark.id, 'pinned')}
+                            ><Pin size={18} /></button
+                          >
+                        </li>
+                      {/each}
+                    </ul>
+                  {:else}
+                    <p class="pinned-panel-empty">
+                      no pinned bookmarks yet. select a bookmark and tap the pin
+                      to keep it here.
+                    </p>
+                  {/if}
+                </PanelDialog.Content>
+              </PanelDialog.Portal>
+            </PanelDialog.Root>
             <button
               data-tour="search"
               bind:this={commandTrigger}
@@ -2969,7 +3027,20 @@
           selectMode = false;
           bookmarkSelectionAnchor = null;
         }}><ActionRead /></button
-      ><button
+      >{#if selectedBookmark}
+        <button
+          class="mobile-selection-action"
+          aria-label="set reminder for selected bookmark"
+          onclick={() => openModal('reminder', selectedBookmark)}
+          ><ActionBell /></button
+        >
+        <button
+          class="mobile-selection-action"
+          aria-label="edit selected bookmark"
+          onclick={() => openModal('bookmark', selectedBookmark)}
+          ><ActionEdit /></button
+        >
+      {/if}<button
         aria-label="delete selected bookmarks"
         onmouseenter={(event) => showSelectionTooltip(event, 'delete')}
         onfocus={(event) => showSelectionTooltip(event, 'delete')}
@@ -3669,6 +3740,113 @@
 {/if}
 
 <style>
+  :global(.mobile-pinned-trigger) {
+    display: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    place-items: center;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+  }
+
+  :global(.pinned-panel-overlay) {
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    background: #0006;
+  }
+
+  :global(.mobile-pinned-panel) {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 50;
+    width: min(360px, 100vw);
+    padding: max(20px, env(safe-area-inset-top)) 16px
+      max(20px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    background: var(--card);
+    color: var(--foreground);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .pinned-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .pinned-panel-heading :global(h2) {
+    margin: 0;
+    font-size: 28px;
+  }
+
+  .pinned-panel-heading :global(button),
+  .mobile-pinned-list button {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted-foreground);
+  }
+
+  .mobile-pinned-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .mobile-pinned-list li,
+  .mobile-pinned-list a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .mobile-pinned-list li {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-pinned-list a {
+    flex: 1;
+    padding: 12px 0;
+  }
+
+  .mobile-pinned-list a :global(svg) {
+    flex-shrink: 0;
+  }
+
+  .mobile-pinned-list span {
+    min-width: 0;
+  }
+
+  .mobile-pinned-list strong,
+  .mobile-pinned-list small {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-pinned-list small,
+  .pinned-panel-empty {
+    color: var(--muted-foreground);
+  }
+
+  .bookmark-selection-toolbar .mobile-selection-action {
+    display: none;
+  }
+
   .right-marker-fade {
     position: absolute;
     top: 0;
@@ -4186,6 +4364,10 @@
   }
 
   @media (max-width: 1179px) {
+    :global(.mobile-pinned-trigger) {
+      display: grid;
+    }
+
     .pinned-rail {
       display: none;
     }
@@ -4198,6 +4380,59 @@
       left: auto;
       padding: 7px 0 0;
       transform: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .extension-panel,
+    .reminders-panel {
+      top: 50% !important;
+      left: 50% !important;
+      right: auto !important;
+      bottom: auto !important;
+      translate: -50% -50%;
+      width: calc(100vw - 32px) !important;
+      max-width: 480px;
+      max-height: calc(100dvh - 32px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      --panel-translate-y: 12px;
+    }
+
+    .date-heading {
+      padding-left: 12px;
+    }
+
+    .bookmark-content {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bookmark-title {
+      width: auto;
+      flex: 0 1 auto;
+      max-width: 60%;
+    }
+
+    .bookmark-meta {
+      flex: 1 1 0;
+      margin-top: 0;
+      width: auto;
+    }
+
+    .bookmark-row .row-actions {
+      display: none;
+    }
+
+    .bookmark-selection-toolbar .mobile-selection-action {
+      display: grid;
+    }
+
+    .bookmark-selection-toolbar button {
+      width: 32px;
+      height: 44px;
     }
   }
 
