@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { fly } from 'svelte/transition';
   import { DropdownMenu } from 'bits-ui';
   import { replaceState } from '$app/navigation';
   import { bookmarks } from '$lib/stores/bookmarks';
@@ -118,7 +119,10 @@
   let bookmarkSelectionAnchor = $state<string | null>(null);
   let collectionSelectionAnchor = $state<string | null>(null);
   let flags = $state<
-    Record<string, { pinned?: boolean; read?: boolean; openedAt?: string }>
+    Record<
+      string,
+      { pinned?: boolean; pinnedAt?: number; read?: boolean; openedAt?: string }
+    >
   >({});
   let modal = $state<
     | 'bookmark'
@@ -292,10 +296,10 @@
       .filter((date) => crossedDateKeys.has(date));
     const next = compactDateDeck(crossedDates);
     const currentSignature = dateDeck
-      .map((item) => `${item.key}:${item.dates.join(',')}`)
+      .map((item) => `${item.key}:${item.dates.join(',')}:${item.count}`)
       .join('|');
     const nextSignature = next
-      .map((item) => `${item.key}:${item.dates.join(',')}`)
+      .map((item) => `${item.key}:${item.dates.join(',')}:${item.count}`)
       .join('|');
     if (currentSignature === nextSignature) return;
     const currentKeys = new Set(dateDeck.map((item) => item.key));
@@ -317,15 +321,16 @@
     dateDeckFreshFrame = undefined;
     for (const observer of dateDeckObservers) observer.disconnect();
     dateDeckObservers = [];
-    crossedDateKeys = new Set();
-    freshDateDeckKeys = [];
-    dateDeck = [];
     if (
       !stickyLibraryHeader ||
       view !== 'library' ||
       !window.matchMedia('(min-width: 1061px)').matches
-    )
+    ) {
+      crossedDateKeys = new Set();
+      freshDateDeckKeys = [];
+      dateDeck = [];
       return;
+    }
     const boundary = Math.ceil(
       stickyLibraryHeader.getBoundingClientRect().bottom
     );
@@ -336,6 +341,7 @@
     dateDeckRight = firstGroup
       ? window.innerWidth - firstGroup.getBoundingClientRect().left + 12
       : 0;
+    crossedDateKeys = new Set();
     document
       .querySelectorAll<HTMLElement>('.date-sentinel[data-date-key]')
       .forEach((element, groupIndex) => {
@@ -345,6 +351,11 @@
         const predictedDeck = compactDateDeck(crossedThroughGroup);
         const slotIndex = Math.max(predictedDeck.length - 1, 0);
         const slotBoundary = boundary + slotIndex * dateDeckRowHeight;
+        if (
+          element.getBoundingClientRect().top <= slotBoundary &&
+          element.dataset.dateKey
+        )
+          crossedDateKeys.add(element.dataset.dateKey);
         const observer = new IntersectionObserver(
           ([entry]) => {
             const date = (entry.target as HTMLElement).dataset.dateKey;
@@ -362,6 +373,7 @@
         observer.observe(element);
         dateDeckObservers.push(observer);
       });
+    refreshDateDeck();
   }
   function scheduleDateDeckObserver() {
     if (dateDeckFrame) return;
@@ -378,16 +390,31 @@
     if (stickyLibraryHeader)
       pinnedAreaHeight = stickyLibraryHeader.getBoundingClientRect().height;
   }
-  function toggleDateDeckItem(item: DateDeckItem) {
-    const shouldCollapse = item.dates.some(
-      (date) => !collapsedGroups.includes(date)
+  async function openDateDeckItem(item: DateDeckItem) {
+    collapsedGroups = collapsedGroups.filter(
+      (date) => !item.dates.includes(date)
     );
-    collapsedGroups = shouldCollapse
-      ? [...new Set([...collapsedGroups, ...item.dates])]
-      : collapsedGroups.filter((date) => !item.dates.includes(date));
+    await tick();
+    const target = Array.from(
+      document.querySelectorAll<HTMLElement>('.date-group[data-date-key]')
+    ).find((element) => element.dataset.dateKey === item.dates[0]);
+    if (!target || !stickyLibraryHeader) return;
+    window.scrollTo({
+      top:
+        window.scrollY +
+        target.getBoundingClientRect().top -
+        stickyLibraryHeader.getBoundingClientRect().bottom -
+        8,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'instant'
+        : 'smooth'
+    });
   }
+  const dateGroupSignature = $derived(
+    groups.map((group) => `${group.date}:${group.items.length}`).join('|')
+  );
   $effect(() => {
-    groups.map((group) => group.date).join('|');
+    dateGroupSignature;
     collectionsOpen;
     if (view !== 'library') {
       dateDeck = [];
@@ -456,7 +483,30 @@
           : +b.createdAt - +a.createdAt
       )
   );
-  let pinned = $derived($bookmarks.filter((b) => flags[b.id]?.pinned));
+  let pinned = $derived(
+    $bookmarks
+      .filter((b) => flags[b.id]?.pinned)
+      .sort(
+        (a, b) => (flags[b.id]?.pinnedAt || 0) - (flags[a.id]?.pinnedAt || 0)
+      )
+  );
+  function pinExit(_node: HTMLElement) {
+    return {
+      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 0
+        : 220,
+      css: (t: number) =>
+        `opacity:${t * t};transform:scale(${0.8 + t * 0.2});filter:blur(${(1 - t) * 3}px);mask-image:repeating-conic-gradient(from 45deg, #000 0deg ${t * 90}deg, transparent ${t * 90}deg 90deg);mask-size:20px 20px`
+    };
+  }
+  function pinEntry() {
+    return {
+      x: -24,
+      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 0
+        : 240
+    };
+  }
   let reminderBookmarks = $derived(
     $bookmarks
       .filter((bookmark) => bookmark.reminderAt)
@@ -980,7 +1030,12 @@
   }
   function setFlags(ids: string[], key: 'pinned' | 'read', value: boolean) {
     const next = { ...flags };
-    for (const id of ids) next[id] = { ...next[id], [key]: value };
+    for (const [index, id] of ids.entries())
+      next[id] = {
+        ...next[id],
+        [key]: value,
+        ...(key === 'pinned' && value ? { pinnedAt: Date.now() + index } : {})
+      };
     try {
       localStorage.setItem(flagKey(), JSON.stringify(next));
       flags = next;
@@ -1818,7 +1873,7 @@
                         class:selected={selectedCollections.includes(c.id)}
                       >
                         <button
-                          class="collection-main [&_svg]:block flex items-start [gap:var(--icon-text-gap)] min-w-0 flex-1 border-0 bg-none text-inherit [padding:12px] text-left [&>span]:min-w-0 [&_strong]:block [&_strong]:[color:var(--foreground)] [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:[margin-top:2px] [&_small]:[font-size:var(--secondary-text-font-size)]"
+                          class="collection-main [&_svg]:block flex items-start [gap:var(--icon-text-gap)] min-w-0 flex-1 border-0 bg-none text-inherit [padding:7px_12px] text-left [&>span]:min-w-0 [&_strong]:block [&_strong]:[color:var(--foreground)] [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:[margin-top:2px] [&_small]:[font-size:var(--secondary-text-font-size)]"
                           aria-pressed={selectedCollections.includes(c.id)}
                           onclick={(event) => {
                             if (selectCollectionRange(event, c.id)) return;
@@ -1851,6 +1906,7 @@
             </div>
           </div>
         </section>
+        <div class="right-marker-fade" aria-hidden="true"></div>
       </div>
       {#if pinned.length}<aside
           class="pinned-rail"
@@ -1858,32 +1914,44 @@
           aria-label="pinned bookmarks"
         >
           <div class="pinned-rail-list">
-            {#each pinned as b}<a
-                class="pinned-rail-chip"
-                class:selected={selected.includes(b.id)}
-                href={b.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={b.title}
-                onclick={(event) => {
-                  event.preventDefault();
-                  if (
-                    !selectBookmarkRange(
-                      event,
-                      b.id,
-                      pinned.map((bookmark) => bookmark.id)
+            {#each pinned as b (b.id)}<div
+                class="pinned-rail-item"
+                in:fly={pinEntry()}
+                out:pinExit
+              >
+                <a
+                  class="pinned-rail-chip"
+                  class:selected={selected.includes(b.id)}
+                  href={b.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={b.title}
+                  onclick={(event) => {
+                    event.preventDefault();
+                    if (
+                      !selectBookmarkRange(
+                        event,
+                        b.id,
+                        pinned.map((bookmark) => bookmark.id)
+                      )
                     )
-                  )
-                    selectBookmark(b.id);
-                }}
-                ><span class="pinned-rail-icon"
-                  ><Globe size={14} /><img
-                    src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
-                    alt=""
-                    onerror={(event) => event.currentTarget.remove()}
-                  /></span
-                ><span>{b.title}</span></a
-              >{/each}
+                      selectBookmark(b.id);
+                  }}
+                  ><span class="pinned-rail-icon"
+                    ><Globe size={14} /><img
+                      src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
+                      alt=""
+                      onerror={(event) => event.currentTarget.remove()}
+                    /></span
+                  ><span>{b.title}</span></a
+                ><button
+                  class="pinned-rail-unpin"
+                  aria-label={`unpin ${b.title}`}
+                  title="unpin"
+                  onclick={() => toggleFlag(b.id, 'pinned')}
+                  ><Cross2 size={12} /></button
+                >
+              </div>{/each}
           </div>
         </aside>{/if}
       <section
@@ -2003,7 +2071,7 @@
             loading bookmarks…
           </div>
         {:else if visible.length}
-          {#each groups as group}
+          {#each groups as group (group.date)}
             {@const collapsed = collapsedGroups.includes(group.date)}
             {@const stackedItem = dateDeck.find(
               (item) => item.key === `day-${group.date}`
@@ -2045,7 +2113,7 @@
                 aria-expanded={!headingCollapsed}
                 onclick={() =>
                   stackedItem
-                    ? toggleDateDeckItem(stackedItem)
+                    ? openDateDeckItem(stackedItem)
                     : toggleGroup(group.date)}
                 ><span>{stackedItem?.label || group.date}</span><span
                   class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
@@ -3601,6 +3669,58 @@
 {/if}
 
 <style>
+  .right-marker-fade {
+    position: absolute;
+    top: 0;
+    bottom: -24px;
+    left: calc(100% + 1px);
+    width: 64px;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      var(--background) calc(100% - 24px),
+      transparent
+    );
+  }
+
+  .pinned-rail-item {
+    position: relative;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pinned-rail-unpin {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: var(--sidebar);
+    box-shadow: -5px 0 6px var(--sidebar);
+    color: var(--muted-foreground);
+    opacity: 0;
+  }
+
+  .pinned-rail-item:hover .pinned-rail-unpin,
+  .pinned-rail-item:focus-within .pinned-rail-unpin {
+    opacity: 1;
+  }
+
+  .pinned-rail-unpin:hover {
+    color: var(--foreground);
+    background: var(--secondary);
+  }
+
+  .pinned-rail-unpin:focus-visible {
+    outline: 1px solid var(--accent-text);
+  }
+
   .date-heading {
     font-size: var(--body-font-size) !important;
   }
@@ -3754,10 +3874,17 @@
     border-top: 1px solid var(--border);
   }
 
+  .collection-empty {
+    height: 117px;
+    min-height: 117px;
+    padding-block: 7px;
+  }
+
   .collection-grid {
     display: grid;
     grid-auto-columns: calc(100% / 5);
-    grid-template-rows: repeat(2, 66px);
+    grid-template-rows: repeat(2, 58px);
+    height: 116px;
     width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
@@ -3769,10 +3896,6 @@
 
   .collection-grid::-webkit-scrollbar {
     display: none;
-  }
-
-  .collection-grid:has(.collection-card:nth-child(-n + 5):last-child) {
-    grid-template-rows: 66px;
   }
 
   .collection-grid .collection-card {
@@ -4081,14 +4204,6 @@
   @media (max-width: 520px) {
     .collection-grid {
       grid-auto-columns: 50%;
-    }
-
-    .collection-grid:has(.collection-card:nth-child(-n + 5):last-child) {
-      grid-template-rows: repeat(2, 66px);
-    }
-
-    .collection-grid:has(.collection-card:nth-child(-n + 2):last-child) {
-      grid-template-rows: 66px;
     }
 
     .collection-grid .collection-card {

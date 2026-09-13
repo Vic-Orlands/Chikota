@@ -92,7 +92,10 @@
       .querySelector<HTMLElement>('[role="menu"]')
       ?.getBoundingClientRect();
     if (!rect) {
-      position = { left: 0, top: 0 };
+      position = {
+        left: (window.innerWidth - width) / 2,
+        top: Math.max(12, (window.innerHeight - height) / 2)
+      };
       positioned = true;
       return;
     }
@@ -160,6 +163,25 @@
     positioned = true;
   }
 
+  $effect(() => {
+    if (!open) return;
+    const previousOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    const blockScroll = (event: Event) => {
+      if (
+        !(event.target instanceof Element) ||
+        !event.target.closest('.tour-card, dialog, [role="dialog"]')
+      )
+        event.preventDefault();
+    };
+    window.addEventListener('wheel', blockScroll, { passive: false });
+    window.addEventListener('touchmove', blockScroll, { passive: false });
+    return () => {
+      document.documentElement.style.overflow = previousOverflow;
+      window.removeEventListener('wheel', blockScroll);
+      window.removeEventListener('touchmove', blockScroll);
+    };
+  });
   $effect(() => {
     if (!open) return;
     previousFocus =
@@ -246,9 +268,7 @@
   <div
     bind:this={panel}
     class={[
-      'tour-card fixed [top:0] [left:0] opacity-0 [z-index:60] [width:min(340px,_calc(100vw_-_24px))] p-0 [border:1px_solid_var(--border)] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] outline-none [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&.positioned]:opacity-100 [&_button:focus-visible]:[outline:2px_solid_var(--accent-text)] [&_button:focus-visible]:[outline-offset:2px] motion-safe:[&.positioned:not(.centered)]:[transition:transform_260ms_cubic-bezier(0.645,_0.045,_0.355,_1),_opacity_180ms_ease-out] motion-safe:[&.centered.positioned.launching]:[transform-origin:center] motion-safe:[&.centered.positioned.launching]:transition-none motion-safe:[&.centered.positioned.launching]:[animation:tour-launch-in_220ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[&.centered.positioned.launching]:[will-change:scale,_opacity] motion-safe:[&.launching_.tour-copy]:[animation:none] motion-reduce:transition-none motion-reduce:[animation:none]',
-      !current.selector &&
-        'top-1/2! left-1/2! -translate-x-1/2 -translate-y-1/2'
+      'tour-card fixed [top:0] [left:0] opacity-0 [z-index:60] [width:min(340px,_calc(100vw_-_24px))] p-0 [border:1px_solid_var(--border)] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] outline-none [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&.positioned]:opacity-100 [&_button:focus-visible]:[outline:2px_solid_var(--accent-text)] [&_button:focus-visible]:[outline-offset:2px] motion-safe:[&.positioned:not(.centered)]:[transition:transform_260ms_cubic-bezier(0.645,_0.045,_0.355,_1),_opacity_180ms_ease-out] motion-safe:[&.centered.positioned.launching]:[transform-origin:center] motion-safe:[&.centered.positioned.launching]:transition-none motion-safe:[&.centered.positioned.launching]:[animation:tour-launch-in_220ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[&.centered.positioned.launching]:[will-change:scale,_opacity] motion-safe:[&.launching_.tour-copy]:[animation:none] motion-reduce:transition-none motion-reduce:[animation:none]'
     ]}
     class:centered={!current.selector}
     class:launching
@@ -258,9 +278,7 @@
     aria-describedby="tour-description"
     tabindex="-1"
     class:positioned
-    style:transform={current.selector
-      ? `translate3d(${position.left}px, ${position.top}px, 0)`
-      : undefined}
+    style:transform={`translate3d(${position.left}px, ${position.top}px, 0)`}
     onanimationend={(event) => {
       if (event.animationName === 'tour-launch-in') launching = false;
     }}
