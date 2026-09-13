@@ -29,6 +29,7 @@ execFileSync('zip', [
   'static/chikota-extension.zip',
   'extension/manifest.json',
   'extension/background.js',
+  'extension/content.js',
   'extension/options.html',
   'extension/options.js',
   join(outputDirectory, 'options.css')

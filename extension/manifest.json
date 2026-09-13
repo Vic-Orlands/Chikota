@@ -4,6 +4,13 @@
   "version": "1.0.0",
   "description": "Save any website or link to your personal Chikota reading list from the right-click menu.",
   "permissions": ["contextMenus", "storage", "activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_title": "Save to Chikota" },
   "options_ui": { "page": "options.html", "open_in_tab": true }

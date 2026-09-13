@@ -55,3 +55,20 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.action.onClicked.addListener((tab) => {
   void openApp(tab.url, tab.title).catch(report);
 });
+chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  if (message?.type !== 'save-copied-link' || !sender.tab) return;
+  let target;
+  try {
+    target = new URL(message.url);
+    if (!['http:', 'https:'].includes(target.protocol)) return;
+  } catch {
+    return;
+  }
+  openApp(target.href)
+    .then(() => respond({ ok: true }))
+    .catch((error) => {
+      report(error);
+      respond({ ok: false });
+    });
+  return true;
+});
