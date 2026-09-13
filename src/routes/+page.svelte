@@ -33,7 +33,6 @@
   import UbuntuWidgetLauncher from '$lib/components/icons/UbuntuWidgetLauncher.svelte';
   import ReminderDone from '$lib/components/icons/ReminderDone.svelte';
   import SearchGrid from '$lib/components/icons/SearchGrid.svelte';
-  import SaveCloud from '$lib/components/icons/SaveCloud.svelte';
   import SelectAll from '$lib/components/icons/SelectAll.svelte';
   import SelectList from '$lib/components/icons/SelectList.svelte';
   import {
@@ -68,7 +67,7 @@
     emailId?: string;
     updatedAt: string;
   };
-  type SettingsTab = 'appearance' | 'reminders' | 'about';
+  type SettingsTab = 'appearance' | 'reminders' | 'shortcuts' | 'about';
   type DesktopPlatform = 'mac' | 'linux' | null;
   type DateDeckItem = {
     key: string;
@@ -194,7 +193,10 @@
   let dragBase: string[] = [];
   let dragging = $state(false);
   let collectionsOpen = $state(true);
-  let pinnedOpen = $state(true);
+  let collectionScroller = $state<HTMLElement>();
+  let collectionOverflowStart = $state(false);
+  let collectionOverflowEnd = $state(false);
+  let pinnedAreaHeight = $state(0);
   let collapsedGroups = $state<string[]>([]);
   let stickyLibraryHeader = $state<HTMLElement>();
   let dateDeck = $state<DateDeckItem[]>([]);
@@ -206,7 +208,6 @@
   let dateDeckObservers: IntersectionObserver[] = [];
   let crossedDateKeys = new Set<string>();
   const dateDeckRowHeight = 46;
-  let reduceMotion = $state(false);
   let groups = $derived.by(() => {
     const grouped = new Map<string, Bookmark[]>();
     for (const bookmark of visible) {
@@ -366,6 +367,17 @@
     if (dateDeckFrame) return;
     dateDeckFrame = window.requestAnimationFrame(connectDateDeckObserver);
   }
+  function syncCollectionOverflow() {
+    if (!collectionScroller) return;
+    collectionOverflowStart = collectionScroller.scrollLeft > 2;
+    collectionOverflowEnd =
+      collectionScroller.scrollLeft + collectionScroller.clientWidth <
+      collectionScroller.scrollWidth - 2;
+  }
+  function syncPinnedArea() {
+    if (stickyLibraryHeader)
+      pinnedAreaHeight = stickyLibraryHeader.getBoundingClientRect().height;
+  }
   function toggleDateDeckItem(item: DateDeckItem) {
     const shouldCollapse = item.dates.some(
       (date) => !collapsedGroups.includes(date)
@@ -382,6 +394,22 @@
       return;
     }
     void tick().then(scheduleDateDeckObserver);
+  });
+  $effect(() => {
+    $categories.length;
+    collectionsOpen;
+    collectionScroller;
+    if (view === 'library')
+      void tick().then(() => {
+        syncCollectionOverflow();
+        syncPinnedArea();
+      });
+  });
+  $effect(() => {
+    if (!stickyLibraryHeader) return;
+    const observer = new ResizeObserver(syncPinnedArea);
+    observer.observe(stickyLibraryHeader);
+    return () => observer.disconnect();
   });
   const themes: { id: Theme; name: string; description: string }[] = [
     { id: 'light', name: 'paper', description: 'white & graphite' },
@@ -456,15 +484,9 @@
             : $categories.find((c) => c.id === section)?.name || 'collection'
   );
   onMount(() => {
-    const motionPreference = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    );
-    const syncMotionPreference = () => {
-      reduceMotion = motionPreference.matches;
-    };
-    syncMotionPreference();
-    motionPreference.addEventListener('change', syncMotionPreference);
     window.addEventListener('resize', scheduleDateDeckObserver);
+    window.addEventListener('resize', syncCollectionOverflow);
+    window.addEventListener('resize', syncPinnedArea);
     const navigatorWithPlatform = navigator as Navigator & {
       userAgentData?: { platform?: string };
     };
@@ -545,7 +567,8 @@
       window.clearInterval(reminderTimer);
       window.removeEventListener('storage', refresh);
       window.removeEventListener('resize', scheduleDateDeckObserver);
-      motionPreference.removeEventListener('change', syncMotionPreference);
+      window.removeEventListener('resize', syncCollectionOverflow);
+      window.removeEventListener('resize', syncPinnedArea);
       for (const timer of Object.values(copyResetTimers))
         window.clearTimeout(timer);
       if (platformCalloutTimer) window.clearTimeout(platformCalloutTimer);
@@ -800,10 +823,8 @@
   function closeExtensionPanel() {
     extensionPanelOpen = false;
     if (extensionPanelCloseTimer) window.clearTimeout(extensionPanelCloseTimer);
-    extensionPanelCloseTimer = window.setTimeout(() => {
-      extensionPanelMounted = false;
-      extensionPanelCloseTimer = undefined;
-    }, 350);
+    extensionPanelMounted = false;
+    extensionPanelCloseTimer = undefined;
   }
   async function openWidgetPanel() {
     closeContext();
@@ -824,10 +845,8 @@
   function closeWidgetPanel() {
     widgetPanelOpen = false;
     if (widgetPanelCloseTimer) window.clearTimeout(widgetPanelCloseTimer);
-    widgetPanelCloseTimer = window.setTimeout(() => {
-      widgetPanelMounted = false;
-      widgetPanelCloseTimer = undefined;
-    }, 350);
+    widgetPanelMounted = false;
+    widgetPanelCloseTimer = undefined;
   }
   async function openLinuxPanel() {
     closeContext();
@@ -848,10 +867,8 @@
   function closeLinuxPanel() {
     linuxPanelOpen = false;
     if (linuxPanelCloseTimer) window.clearTimeout(linuxPanelCloseTimer);
-    linuxPanelCloseTimer = window.setTimeout(() => {
-      linuxPanelMounted = false;
-      linuxPanelCloseTimer = undefined;
-    }, 350);
+    linuxPanelMounted = false;
+    linuxPanelCloseTimer = undefined;
   }
   function dismissPlatformCallout() {
     platformCalloutOpen = false;
@@ -889,10 +906,8 @@
   function closeRemindersPanel() {
     remindersPanelOpen = false;
     if (remindersPanelCloseTimer) window.clearTimeout(remindersPanelCloseTimer);
-    remindersPanelCloseTimer = window.setTimeout(() => {
-      remindersPanelMounted = false;
-      remindersPanelCloseTimer = undefined;
-    }, 350);
+    remindersPanelMounted = false;
+    remindersPanelCloseTimer = undefined;
   }
   async function createWidgetToken() {
     widgetTokenBusy = true;
@@ -1645,12 +1660,12 @@
   <LandingPage onenter={enterLibrary} />
 {:else if view === 'library'}
   <div
-    class="reading-column [width:min(var(--reading-max),_calc(100%_-_40px))] [max-width:var(--reading-max)] [margin:0_auto] [min-height:100dvh] min-w-0 [border-inline:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] [&>main]:min-w-0 [&>main]:max-w-full max-[760px]:[width:calc(100%_-_28px)] max-[520px]:[width:calc(100%_-_20px)]"
+    class="reading-column [width:min(var(--reading-max),_calc(100%_-_40px))] [max-width:var(--reading-max)] [margin:0_auto] [min-height:100dvh] min-w-0 [border-inline:1px_solid_var(--border)] [&>main]:min-w-0 [&>main]:max-w-full max-[760px]:[width:calc(100%_-_28px)] max-[520px]:[width:calc(100%_-_20px)]"
   >
     <main class="pb-40 max-[520px]:pb-24">
       <div
         bind:this={stickyLibraryHeader}
-        class="sticky top-0 z-20 bg-background [box-shadow:0_1px_0_color-mix(in_srgb,_var(--border)_58%,_transparent)]"
+        class="sticky-library-header sticky top-0 z-20 bg-background"
       >
         <header
           class="reading-header relative grid [grid-template-columns:1fr_auto] items-center [gap:18px] [padding:18px_10px] [min-height:72px] max-[760px]:[padding:24px_12px] max-[760px]:[gap:10px] max-[520px]:[grid-template-columns:1fr_1fr] max-[520px]:[gap:12px] max-[520px]:[padding:16px_10px_7px]"
@@ -1785,34 +1800,45 @@
             >
               {#if $categories.filter((c) => c.id !== 'all').length}
                 <div
-                  class="collection-grid grid [grid-template-columns:repeat(4,_minmax(0,_1fr))] [gap:1px] border-0 [border-block:1px_solid_var(--border)] [border-radius:0] overflow-hidden [background:var(--border)] [&::after]:[content:''] [&::after]:[grid-column-end:-1] [&::after]:[background:var(--sidebar)] [&:has(.collection-card:nth-child(4n):last-child)::after]:hidden max-[520px]:[grid-template-columns:repeat(2,_minmax(0,_1fr))] max-[520px]:[&:has(.collection-card:nth-child(4n):last-child)::after]:block max-[520px]:[&:has(.collection-card:nth-child(2n):last-child)::after]:hidden"
+                  class="collection-slider"
+                  class:fade-start={collectionOverflowStart}
+                  class:fade-end={collectionOverflowEnd}
                 >
-                  {#each $categories.filter((c) => c.id !== 'all') as c}<div
-                      class="collection-card flex items-center min-w-0 border-0 [background:var(--sidebar)] [color:var(--muted-foreground)] text-left relative [&:hover_.collection-menu]:opacity-100 [&.active]:[background:var(--accent-soft)] [&:hover]:[background:var(--accent-soft)] [&.selected]:[background:var(--accent-soft)] [&.selected]:[box-shadow:inset_0_0_0_1px_var(--accent-text)] max-[760px]:p-0 max-[760px]:[&_strong]:[font-size:var(--body-font-size)] max-[520px]:p-0 motion-safe:[transition:background-color_140ms_ease]"
-                      class:active={section === c.id}
-                      class:selected={selectedCollections.includes(c.id)}
-                    >
-                      <button
-                        class="collection-main [&_svg]:block flex items-start [gap:var(--icon-text-gap)] min-w-0 flex-1 border-0 bg-none text-inherit [padding:12px] text-left [&>span]:min-w-0 [&_strong]:block [&_strong]:[color:var(--foreground)] [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:[margin-top:5px] [&_small]:[font-size:var(--secondary-text-font-size)]"
-                        aria-pressed={selectedCollections.includes(c.id)}
-                        onclick={(event) => {
-                          if (selectCollectionRange(event, c.id)) return;
-                          navigate(section === c.id ? 'all' : c.id);
-                        }}
-                        ><span
-                          ><strong>{c.name}</strong><small
-                            >{$bookmarks.filter((b) => b.categoryId === c.id)
-                              .length}
-                            links</small
-                          ></span
-                        ></button
-                      ><button
-                        class="collection-menu icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] [width:24px] [height:28px] [margin-right:5px] opacity-0 [&:focus-visible]:opacity-100 motion-safe:[transition:background-color_140ms_ease]"
-                        aria-label={`edit ${c.name}`}
-                        onclick={() => editCollection(c.id)}
-                        ><MoreVertical size={15} /></button
+                  <div
+                    bind:this={collectionScroller}
+                    class="collection-grid"
+                    role="region"
+                    aria-label="collections"
+                    onscroll={syncCollectionOverflow}
+                  >
+                    {#each $categories.filter((c) => c.id !== 'all') as c, index}<div
+                        class="collection-card flex items-center min-w-0 border-0 [background:var(--sidebar)] [color:var(--muted-foreground)] text-left relative [&:hover_.collection-menu]:opacity-100 [&.active]:[background:var(--accent-soft)] [&:hover]:[background:var(--accent-soft)] [&.selected]:[background:var(--accent-soft)] [&.selected]:[box-shadow:inset_0_0_0_1px_var(--accent-text)] max-[760px]:p-0 max-[760px]:[&_strong]:[font-size:var(--body-font-size)] max-[520px]:p-0 motion-safe:[transition:background-color_140ms_ease]"
+                        style={`--collection-column:${Math.floor(index / 10) * 5 + (index % 5) + 1};--collection-row:${Math.floor((index % 10) / 5) + 1};--collection-mobile-column:${Math.floor(index / 4) * 2 + (index % 2) + 1};--collection-mobile-row:${Math.floor((index % 4) / 2) + 1}`}
+                        class:active={section === c.id}
+                        class:selected={selectedCollections.includes(c.id)}
                       >
-                    </div>{/each}
+                        <button
+                          class="collection-main [&_svg]:block flex items-start [gap:var(--icon-text-gap)] min-w-0 flex-1 border-0 bg-none text-inherit [padding:12px] text-left [&>span]:min-w-0 [&_strong]:block [&_strong]:[color:var(--foreground)] [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:[margin-top:2px] [&_small]:[font-size:var(--secondary-text-font-size)]"
+                          aria-pressed={selectedCollections.includes(c.id)}
+                          onclick={(event) => {
+                            if (selectCollectionRange(event, c.id)) return;
+                            navigate(section === c.id ? 'all' : c.id);
+                          }}
+                          ><span
+                            ><strong>{c.name}</strong><small
+                              >{$bookmarks.filter((b) => b.categoryId === c.id)
+                                .length}
+                              links</small
+                            ></span
+                          ></button
+                        ><button
+                          class="collection-menu icon-button inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] [width:24px] [height:28px] [margin-right:5px] opacity-0 [&:focus-visible]:opacity-100 motion-safe:[transition:background-color_140ms_ease]"
+                          aria-label={`edit ${c.name}`}
+                          onclick={() => editCollection(c.id)}
+                          ><MoreVertical size={15} /></button
+                        >
+                      </div>{/each}
+                  </div>
                 </div>
               {:else}<div
                   class="section-empty collection-empty relative [isolation:isolate] flex flex-col items-center justify-center [min-height:92px] text-center border-0 [border-block:1px_solid_var(--border)] [border-radius:0] [background:var(--sidebar)] [padding:16px_12px] [&_strong]:[font-size:var(--section-label-font-size)] [&_strong]:font-medium [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:var(--secondary-text-font-size)] [&_p]:[line-height:1.6] [&_p]:[margin:10px_0_0]"
@@ -1825,93 +1851,41 @@
             </div>
           </div>
         </section>
-        <div
-          class="pointer-events-none absolute top-0 -bottom-6 right-full hidden w-[50vw] bg-linear-to-b from-background from-[calc(100%-24px)] to-transparent min-[1061px]:block"
-          aria-hidden="true"
-        ></div>
-        <div
-          class="pointer-events-none absolute top-0 -bottom-6 left-full hidden w-[50vw] bg-linear-to-b from-background from-[calc(100%-24px)] to-transparent min-[781px]:block"
-          aria-hidden="true"
-        ></div>
       </div>
-      {#if section !== 'opened'}<section
-          class="pinned-section ruled-section relative p-0 [&::before]:[content:''] [&::before]:absolute [&::before]:[height:1px] [&::before]:[background:color-mix(in_srgb,_var(--border)_58%,_transparent)] [&::before]:[top:0] [&::before]:[left:0] [&::before]:[right:0] [&::before]:pointer-events-none [&>.section-toolbar]:[min-height:38px] max-[520px]:[padding-inline:0]"
-          aria-labelledby="pinned-heading"
+      {#if pinned.length}<aside
+          class="pinned-rail"
+          style:height={`${pinnedAreaHeight}px`}
+          aria-label="pinned bookmarks"
         >
-          <div
-            class="section-toolbar py-2! flex items-center justify-between [gap:12px] [min-height:46px] [padding-inline:10px] max-[520px]:[gap:8px]"
-          >
-            <button
-              class="section-toggle [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] max-[520px]:[gap:var(--icon-text-gap)] max-[520px]:[padding-left:0] max-[520px]:[&_h2]:[font-size:24px]"
-              aria-expanded={pinnedOpen}
-              aria-controls="pinned-content"
-              onclick={() => (pinnedOpen = !pinnedOpen)}
-              ><Pin size={15} />
-              <h2 id="pinned-heading">pinned</h2>
-              <span
-                class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
-                >{pinned.length}</span
-              ><ChevronDown
-                size={14}
-                class={pinnedOpen
-                  ? 'chevron expanded [&.expanded]:[transform:rotate(180deg)] motion-safe:[transition:transform_200ms_ease-in-out] motion-reduce:transition-none'
-                  : 'chevron [&.expanded]:[transform:rotate(180deg)] motion-safe:[transition:transform_200ms_ease-in-out] motion-reduce:transition-none'}
-              /></button
-            >
+          <div class="pinned-rail-list">
+            {#each pinned as b}<a
+                class="pinned-rail-chip"
+                class:selected={selected.includes(b.id)}
+                href={b.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={b.title}
+                onclick={(event) => {
+                  event.preventDefault();
+                  if (
+                    !selectBookmarkRange(
+                      event,
+                      b.id,
+                      pinned.map((bookmark) => bookmark.id)
+                    )
+                  )
+                    selectBookmark(b.id);
+                }}
+                ><span class="pinned-rail-icon"
+                  ><Globe size={14} /><img
+                    src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
+                    alt=""
+                    onerror={(event) => event.currentTarget.remove()}
+                  /></span
+                ><span>{b.title}</span></a
+              >{/each}
           </div>
-          <div
-            id="pinned-content"
-            class="collapse-grid grid [grid-template-rows:0fr] [grid-template-columns:minmax(0,_1fr)] min-w-0 max-w-full opacity-0 [&.open]:[grid-template-rows:1fr] [&.open]:opacity-100 motion-safe:[transition:grid-template-rows_200ms_cubic-bezier(0.645,_0.045,_0.355,_1),_opacity_150ms_ease-out] motion-reduce:transition-none"
-            class:open={pinnedOpen}
-            inert={!pinnedOpen ? true : undefined}
-            aria-hidden={!pinnedOpen}
-          >
-            <div
-              class="collapse-inner min-h-0 min-w-0 max-w-full overflow-hidden"
-            >
-              {#if pinned.length}<div
-                  class="pin-grid grid [grid-template-columns:repeat(4,_minmax(0,_1fr))] [gap:0] [border-block:1px_solid_var(--border)] overflow-hidden bg-transparent max-[520px]:[grid-template-columns:repeat(2,_minmax(0,_1fr))]"
-                >
-                  {#each pinned as b}<a
-                      class="pin-card flex flex-col items-start [gap:var(--icon-text-gap)] min-w-0 [min-height:66px] [height:66px] [padding:6px_12px] [background:var(--sidebar)] border-0 [border-right:1px_solid_var(--border)] [border-radius:0] [&:nth-child(4n)]:[border-right:0] [&:nth-child(n+5)]:[border-top:1px_solid_var(--border)] [&>.site-letter]:[width:20px] [&>.site-letter]:[height:20px] [&>.site-letter]:[flex:0_0_20px] [&>.site-letter]:[border-radius:0] [&>.site-letter]:bg-transparent [&>.site-letter_img]:[inset:0] [&>.site-letter_img]:[width:20px] [&>.site-letter_img]:[height:20px] [&>.site-letter:has(img)>svg]:[visibility:hidden] [&>div]:min-w-0 [&>div]:w-full [&_strong]:block [&_strong]:[font-size:var(--body-font-size)] [&_strong]:font-medium [&_strong]:[line-height:1.1] [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)] [&_small]:[line-height:1.1] [&_small]:[margin-top:1px] [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&:hover]:[background:var(--secondary)] [&.selected]:[background:var(--accent-soft)] [&.selected]:[box-shadow:inset_0_0_0_1px_var(--accent-text)] max-[520px]:[&:nth-child(4n)]:[border-right:1px_solid_var(--border)] max-[520px]:[&:nth-child(2n)]:[border-right:0] max-[520px]:[&:nth-child(n+3)]:[border-top:1px_solid_var(--border)]"
-                      class:selected={selected.includes(b.id)}
-                      href={b.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onclick={(event) => {
-                        event.preventDefault();
-                        if (
-                          !selectBookmarkRange(
-                            event,
-                            b.id,
-                            pinned.map((bookmark) => bookmark.id)
-                          )
-                        )
-                          selectBookmark(b.id);
-                      }}
-                      ><span
-                        class="site-letter [width:28px] [height:28px] border-0 [border-radius:4px] bg-transparent grid place-items-center [font-family:var(--font-sans)] [font-size:14px] [font-weight:600] [color:var(--foreground)] shrink-0 relative overflow-hidden [&_img]:absolute [&_img]:[inset:5px] [&_img]:[width:18px] [&_img]:[height:18px] [&_img]:object-contain [&.show-check]:opacity-0"
-                        ><Globe size={18} /><img
-                          src={`https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(b.url)}&sz=32`}
-                          alt=""
-                          onerror={(event) => event.currentTarget.remove()}
-                        /></span
-                      >
-                      <div>
-                        <strong>{b.title}</strong><small>{domain(b.url)}</small>
-                      </div></a
-                    >{/each}
-                </div>
-              {:else}<div
-                  class="section-empty relative [isolation:isolate] flex flex-col items-center justify-center [min-height:92px] text-center border-0 [border-block:1px_solid_var(--border)] [border-radius:0] [background:var(--sidebar)] [padding:16px_12px] [&_strong]:[font-size:var(--section-label-font-size)] [&_strong]:font-medium [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:var(--secondary-text-font-size)] [&_p]:[line-height:1.6] [&_p]:[margin:10px_0_0]"
-                >
-                  <EmptyMono />
-                  <strong>no pinned bookmarks yet.</strong>
-                  <p>keep your important bookmarks pinned for quick access.</p>
-                </div>{/if}
-            </div>
-          </div>
-        </section>{/if}
+        </aside>{/if}
       <section
         class="library-section ruled-section relative p-0 [&::before]:[content:''] [&::before]:absolute [&::before]:[height:1px] [&::before]:[background:color-mix(in_srgb,_var(--border)_58%,_transparent)] [&::before]:[top:0] [&::before]:[left:0] [&::before]:[right:0] [&::before]:pointer-events-none [&>.section-toolbar]:[min-height:38px] min-w-0 max-w-full max-[520px]:[padding-inline:0]"
         aria-label="bookmarks"
@@ -1938,7 +1912,25 @@
               disabled={!ready}
               onclick={() => openModal('bookmark')}><Plus size={15} /></button
             >
-            <div class="list-options relative flex items-center">
+            <div
+              class="list-options relative flex items-center"
+              role="group"
+              aria-label="bookmark view options"
+              onpointerenter={(event) => {
+                if (event.pointerType === 'mouse') listToolsOpen = true;
+              }}
+              onpointerleave={(event) => {
+                if (event.pointerType === 'mouse') listToolsOpen = false;
+              }}
+              onfocusin={() => (listToolsOpen = true)}
+              onfocusout={(event) => {
+                if (
+                  !(event.relatedTarget instanceof Node) ||
+                  !event.currentTarget.contains(event.relatedTarget)
+                )
+                  listToolsOpen = false;
+              }}
+            >
               <button
                 bind:this={listToolsTrigger}
                 data-tour="mixer"
@@ -1947,12 +1939,12 @@
                 title="bookmark actions"
                 aria-expanded={listToolsOpen}
                 aria-controls="bookmark-action-rail"
-                onclick={() => (listToolsOpen = !listToolsOpen)}
+                onclick={() => (listToolsOpen = true)}
                 ><MixerVertical size={15} /></button
               >
               <div
                 id="bookmark-action-rail"
-                class="list-options-rail absolute [left:calc(100%_+_7px)] [top:50%] [z-index:4] flex items-center [gap:3px] [width:max-content] [transform:translateY(-50%)] pointer-events-none [&_.plain-button]:opacity-0 [&_.plain-button]:[transform:translateX(-9px)_scale(0.97)] [&_.plain-button]:[background:var(--background)] [&_.plain-button]:[box-shadow:0_0_0_1px_var(--border)] [&.open]:[pointer-events:auto] [&.open_.plain-button]:opacity-100 [&.open_.plain-button]:[transform:translateX(0)_scale(1)] max-[1060px]:[right:0] max-[1060px]:[left:auto] max-[1060px]:[top:calc(100%_+_7px)] max-[1060px]:transform-none motion-safe:[&_.plain-button]:[transition:opacity_150ms_ease-out,_transform_190ms_cubic-bezier(0.22,_1,_0.36,_1),_background-color_140ms_ease] motion-safe:[&_.plain-button:nth-child(1)]:[transition-delay:90ms] motion-safe:[&_.plain-button:nth-child(2)]:[transition-delay:45ms] motion-safe:[&_.plain-button:nth-child(3)]:[transition-delay:0ms] motion-safe:[&.open_.plain-button:nth-child(1)]:[transition-delay:0ms] motion-safe:[&.open_.plain-button:nth-child(2)]:[transition-delay:45ms] motion-safe:[&.open_.plain-button:nth-child(3)]:[transition-delay:90ms] motion-reduce:[&_.plain-button]:transition-none"
+                class="list-options-rail"
                 class:open={listToolsOpen}
                 aria-hidden={!listToolsOpen}
                 inert={!listToolsOpen ? true : undefined}
@@ -2037,7 +2029,7 @@
               ></span>
               <button
                 class={[
-                  'date-heading [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] justify-end [min-height:46px] [width:max-content] [font-size:var(--section-label-font-size)] max-[1060px]:static max-[1060px]:justify-start max-[1060px]:[min-height:38px]',
+                  'date-heading [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] justify-end [min-height:46px] [width:max-content] [font-size:var(--body-font-size)] max-[1060px]:static max-[1060px]:justify-start max-[1060px]:[min-height:38px]',
                   stackedItem
                     ? 'fixed [z-index:19] [will-change:transform] motion-reduce:transition-none'
                     : 'absolute [right:calc(100%_+_12px)] [top:0]',
@@ -2720,7 +2712,7 @@
       <div
         class="extension-panel-heading flex items-center [gap:var(--icon-text-gap)] [margin-bottom:18px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [&_button]:[margin-left:auto]"
       >
-        <ActionBell size={18} /><span>reminders</span><button
+        <ActionBell size={18} /><button
           class="icon-button small inline-grid place-items-center [width:30px] [height:30px] p-0 border-0 bg-none [color:var(--muted-foreground)] [border-radius:5px] [&:hover]:[background:var(--secondary)] [&:hover]:[color:var(--foreground)] [&.small]:[width:24px] [&.small]:[height:24px] motion-safe:[transition:background-color_140ms_ease]"
           aria-label="close reminders panel"
           onclick={closeRemindersPanel}><Cross2 size={14} /></button
@@ -2845,7 +2837,7 @@
       onfocusout={hideSelectionTooltip}
     >
       <div
-        class="pointer-events-none absolute bottom-[calc(100%+3px)] left-0 [z-index:1] [&.warm]:[will-change:transform] motion-safe:[&.warm]:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
+        class="pointer-events-none absolute bottom-full left-0 [z-index:1] [&.warm]:[will-change:transform] motion-safe:[&.warm]:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)] motion-reduce:transition-none"
         class:warm={selectionTooltipWarm}
         style:transform={`translateX(${selectionTooltip.x}px)`}
       >
@@ -2853,21 +2845,19 @@
           id="selection-dock-tooltip"
           role="tooltip"
           aria-hidden={!selectionTooltip.visible}
-          class="flex flex-col items-center origin-bottom opacity-0 [transform:translate(-50%,_8px)_scale(0.88)] [filter:drop-shadow(0_0_0.4px_color-mix(in_srgb,var(--foreground)_22%,transparent))_drop-shadow(0_1px_1px_color-mix(in_srgb,var(--foreground)_10%,transparent))_drop-shadow(0_6px_14px_color-mix(in_srgb,var(--foreground)_12%,transparent))] motion-safe:[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_opacity_110ms_ease-out] motion-reduce:transition-none [&.visible]:[transform:translate(-50%,_0)_scale(1)] [&.visible]:opacity-100"
+          class="selection-dock-tooltip flex flex-col items-center origin-bottom opacity-0 [transform:translate(-50%,_8px)_scale(0.88)] motion-safe:[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_opacity_110ms_ease-out] motion-reduce:transition-none [&.visible]:[transform:translate(-50%,_0)_scale(1)] [&.visible]:opacity-100"
           class:visible={selectionTooltip.visible}
         >
-          <span
-            class="rounded-full bg-card px-3.5 py-[7px] text-[12px] leading-none text-foreground whitespace-nowrap"
+          <span class="selection-dock-tooltip-bubble"
             >{selectionTooltip.label}</span
           >
           <svg
-            class="-mt-px block h-2.5 w-[18px] overflow-visible"
-            viewBox="0 0 18 10"
-            fill="var(--card)"
+            class="selection-dock-tooltip-tail"
+            viewBox="0 0 44 14"
             aria-hidden="true"
           >
             <path
-              d="M0 0C5 0 6.2 2.4 7.4 7.2A1.6 1.6 0 0 1 10.6 7.2C11.8 2.4 13 0 18 0Z"
+              d="M0 0C8 0 11 1.5 16 8C18.5 11.3 19.3 14 22 14C24.7 14 25.5 11.3 28 8C33 1.5 36 0 44 0Z"
             ></path>
           </svg>
         </div>
@@ -2993,9 +2983,7 @@
             >{/if}<button
             class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
             disabled={saving}
-            >{saving ? 'saving…' : 'set reminder'}<SaveCloud
-              size={14}
-            /></button
+            >{saving ? 'saving…' : 'set reminder'}<Check size={14} /></button
           >
         </div>
       </form>
@@ -3241,7 +3229,7 @@
                   ? 'saving…'
                   : editing
                     ? 'save changes'
-                    : 'save bookmark'}<SaveCloud /></button
+                    : 'save bookmark'}<Check /></button
               >
             </div>
           </form>
@@ -3298,9 +3286,8 @@
                 onclick={closeModal}>cancel</button
               ><button
                 class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
-                >{editingCollectionId
-                  ? 'save name'
-                  : 'create collection'}<SaveCloud /></button
+                >{editingCollectionId ? 'save name' : 'create collection'}<Check
+                /></button
               >
             </div>
           </form>
@@ -3362,7 +3349,7 @@
               ><button
                 class="primary-button inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
                 disabled={saving}
-                >{saving ? 'saving…' : 'set reminder'}<SaveCloud /></button
+                >{saving ? 'saving…' : 'set reminder'}<Check /></button
               >
             </div>
           </form>
@@ -3383,6 +3370,11 @@
                 aria-pressed={settingsTab === 'reminders'}
                 onclick={() => (settingsTab = 'reminders')}
                 ><ActionBell />reminders</button
+              ><button
+                class:active={settingsTab === 'shortcuts'}
+                aria-pressed={settingsTab === 'shortcuts'}
+                onclick={() => (settingsTab = 'shortcuts')}
+                ><CommandKey />shortcuts</button
               ><button
                 class:active={settingsTab === 'about'}
                 aria-pressed={settingsTab === 'about'}
@@ -3453,6 +3445,23 @@
                       location.reload();
                     }}><LogOut />sign out</button
                   >{/if}
+              {:else if settingsTab === 'shortcuts'}
+                <h2 id="dialog-title">a few quick keys.</h2>
+                <p class="dialog-description">
+                  use cmd on mac, or ctrl on windows and linux.
+                </p>
+                <dl class="settings-shortcuts">
+                  {#each [['cmd / ctrl + k', 'search bookmarks and commands'], ['cmd / ctrl + n', 'save a bookmark'], ['cmd / ctrl + a', 'select all visible bookmarks'], ['escape', 'close the active dialog, menu, or selection'], ['shift + click', 'select a range of bookmarks or collections'], ['tab / shift + tab', 'move between controls'], ['enter / space', 'activate the focused control'], ['↑ / ↓ / home / end', 'navigate an open bookmark menu'], ['cmd / ctrl + o', 'open the bookmark'], ['cmd / ctrl + e', 'edit the bookmark'], ['cmd / ctrl + r', 'set or edit its reminder'], ['cmd / ctrl + p', 'pin or unpin the bookmark'], ['cmd / ctrl + m', 'mark as read or unread'], ['cmd / ctrl + w', 'add to or remove from the mac widget'], ['cmd / ctrl + d', 'open bookmark deletion confirmation'], ['alt + t', 'focus notifications']] as [keys, action]}
+                    <div>
+                      <dt>{keys}</dt>
+                      <dd>{action}</dd>
+                    </div>
+                  {/each}
+                </dl>
+                <p class="settings-note">
+                  bookmark commands from o through d apply while its context
+                  menu is open. widget commands require sign-in.
+                </p>
               {:else if settingsTab === 'reminders'}<h2 id="dialog-title">
                   reminder delivery
                 </h2>
@@ -3590,3 +3599,526 @@
     ondismiss={dismissGuide}
   />
 {/if}
+
+<style>
+  .date-heading {
+    font-size: var(--body-font-size) !important;
+  }
+
+  .app-dialog[open] {
+    animation: modal-open 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .app-dialog[open]::backdrop {
+    animation: modal-backdrop-open 240ms ease-out both;
+  }
+
+  @keyframes modal-open {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes modal-backdrop-open {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .app-dialog.settings-dialog {
+    width: 680px;
+  }
+
+  .app-dialog.command-positioned {
+    position: fixed;
+    bottom: auto;
+    right: auto;
+    margin: 0;
+    max-height: min(520px, calc(100dvh - 20px));
+    overflow: hidden;
+  }
+
+  .app-dialog.settings-dialog .dialog-inner,
+  .app-dialog.command-positioned .dialog-inner {
+    padding: 0;
+  }
+
+  .command-positioned .command-dialog {
+    margin: 0;
+  }
+
+  .reminders-panel .extension-panel-heading {
+    margin-bottom: 8px;
+  }
+
+  .reminders-panel .dialog-description {
+    margin-top: 2px;
+  }
+
+  .reminder-table-head > span:first-child {
+    padding-left: 32px;
+  }
+
+  .reminder-table-row.done strong,
+  .reminder-table-row.canceled strong {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+
+  .theme-options {
+    align-items: start;
+  }
+
+  .theme-preview[data-preview='forest'] {
+    background: #0c1510;
+    border-color: #26352b;
+  }
+
+  .theme-preview[data-preview='ember'] {
+    background: #17120f;
+    border-color: #3b2d23;
+  }
+
+  .settings-shortcuts {
+    margin: 0;
+  }
+
+  .settings-panel .dialog-description {
+    margin: 5px 0 18px;
+    color: var(--muted-foreground);
+    font-size: var(--body-font-size);
+    line-height: 1.7;
+  }
+
+  .settings-shortcuts > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-block: 9px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-shortcuts dd {
+    margin: 0;
+    color: var(--muted-foreground);
+    text-align: right;
+  }
+
+  @media (max-width: 520px) {
+    .settings-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-tabs {
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 42px 12px 10px;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-tabs button {
+      width: auto;
+    }
+
+    .settings-panel {
+      padding: 20px;
+    }
+  }
+
+  .sticky-library-header {
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 58%, transparent);
+  }
+
+  #collection-content.open,
+  .date-bookmarks-collapse.open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  .date-bookmarks-collapse.open .collapse-inner {
+    overflow: visible;
+  }
+
+  .collection-slider {
+    position: relative;
+    min-width: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .collection-grid {
+    display: grid;
+    grid-auto-columns: calc(100% / 5);
+    grid-template-rows: repeat(2, 66px);
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: var(--sidebar);
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-inline: contain;
+  }
+
+  .collection-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .collection-grid:has(.collection-card:nth-child(-n + 5):last-child) {
+    grid-template-rows: 66px;
+  }
+
+  .collection-grid .collection-card {
+    grid-column: var(--collection-column);
+    grid-row: var(--collection-row);
+    border-right: 1px solid var(--border);
+    scroll-snap-align: start;
+  }
+
+  .collection-grid .collection-card:hover,
+  .collection-grid .collection-card.active,
+  .collection-grid .collection-card.selected {
+    background: var(--accent-soft);
+  }
+
+  .collection-grid .collection-card.selected {
+    box-shadow: inset 0 0 0 1px var(--accent-text);
+  }
+
+  .collection-grid .collection-card:hover .collection-menu,
+  .collection-grid .collection-card:focus-within .collection-menu {
+    opacity: 1;
+  }
+
+  .collection-grid .collection-card:nth-child(10n + 6),
+  .collection-grid .collection-card:nth-child(10n + 7),
+  .collection-grid .collection-card:nth-child(10n + 8),
+  .collection-grid .collection-card:nth-child(10n + 9),
+  .collection-grid .collection-card:nth-child(10n + 10) {
+    border-top: 1px solid var(--border);
+  }
+
+  .collection-slider::before,
+  .collection-slider::after {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    width: 58px;
+    content: '';
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .collection-slider::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--sidebar), transparent);
+  }
+
+  .collection-slider::after {
+    right: 0;
+    background: linear-gradient(270deg, var(--sidebar), transparent);
+  }
+
+  .collection-slider.fade-start::before,
+  .collection-slider.fade-end::after {
+    opacity: 1;
+  }
+
+  .pinned-rail-chip:focus-visible {
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
+  }
+
+  .pinned-rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 21;
+    width: calc((100vw - var(--reading-max)) / 2);
+    max-height: 100dvh;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .pinned-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pinned-rail-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-content: start;
+    justify-content: flex-end;
+    padding: 18px 22px;
+  }
+
+  .pinned-rail-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    min-height: 31px;
+    padding: 4px 9px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--sidebar);
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.2;
+    text-decoration: none;
+    box-shadow: inset 0 1px 0 #ffffff0d;
+  }
+
+  .pinned-rail-chip:hover,
+  .pinned-rail-chip.selected {
+    background: var(--secondary);
+    color: var(--foreground);
+  }
+
+  .pinned-rail-chip > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pinned-rail-icon {
+    position: relative;
+    display: grid;
+    flex: 0 0 18px;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--secondary);
+  }
+
+  .pinned-rail-icon img {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+
+  #bookmark-action-rail {
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    width: max-content;
+    padding-left: 7px;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  #bookmark-action-rail.open {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  #bookmark-action-rail .plain-button {
+    min-height: 30px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    background: var(--background);
+    color: var(--foreground);
+    box-shadow: 0 0 0 1px var(--border);
+    opacity: 0;
+    transform: translateX(-9px) scale(0.97);
+    transition:
+      opacity 150ms ease-out,
+      transform 190ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 140ms ease;
+  }
+
+  #bookmark-action-rail.open .plain-button {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+
+  #bookmark-action-rail .plain-button:hover,
+  #bookmark-action-rail .plain-button:focus-visible {
+    background: var(--secondary);
+  }
+
+  .list-options-trigger:hover,
+  .list-options-trigger:focus-visible {
+    background: var(--secondary);
+    color: var(--foreground);
+  }
+
+  .bookmark-row + .bookmark-row {
+    border-top: 1px solid var(--border);
+  }
+
+  .bookmark-row::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    background: transparent;
+    content: '';
+    pointer-events: none;
+  }
+
+  .bookmark-row > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .bookmark-row:hover::before,
+  .bookmark-row:focus-within::before {
+    background: var(--row-hover);
+  }
+
+  .bookmark-row.selected::before {
+    background: var(--accent-soft);
+  }
+
+  .bookmark-row.context-active::before {
+    background: color-mix(in srgb, var(--row-hover) 80%, var(--foreground) 4%);
+  }
+
+  .bookmark-leading .site-letter {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    overflow: hidden;
+    border-radius: 7px;
+    background: var(--secondary);
+  }
+
+  .bookmark-leading .site-letter img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    transform: translate(-50%, -50%);
+  }
+
+  .bookmark-leading .site-letter:has(img) :global(svg) {
+    visibility: hidden;
+  }
+
+  .bookmark-row:hover .row-actions .icon-button,
+  .bookmark-row:focus-within .row-actions .icon-button,
+  .row-actions .icon-button.reminder-active {
+    opacity: 1;
+  }
+
+  .row-actions .icon-button:hover,
+  .row-actions .icon-button:focus-visible {
+    color: var(--foreground);
+  }
+
+  .selection-dock-tooltip {
+    filter: drop-shadow(0 8px 12px #0003) drop-shadow(0 2px 3px #0002);
+  }
+
+  .selection-dock-tooltip.visible {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  .selection-dock-tooltip-bubble {
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--body-font-size);
+    font-weight: 400;
+    letter-spacing: 0.1px;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: inset 0 1px 0
+      color-mix(in srgb, var(--foreground) 7%, transparent);
+  }
+
+  .selection-dock-tooltip-tail {
+    display: block;
+    width: 32px;
+    height: 10px;
+    margin-top: -2px;
+    scale: 1;
+    overflow: visible;
+    fill: var(--card);
+  }
+
+  @media (max-width: 1179px) {
+    .pinned-rail {
+      display: none;
+    }
+  }
+
+  @media (max-width: 1060px) {
+    #bookmark-action-rail {
+      top: 100%;
+      right: 0;
+      left: auto;
+      padding: 7px 0 0;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .collection-grid {
+      grid-auto-columns: 50%;
+    }
+
+    .collection-grid:has(.collection-card:nth-child(-n + 5):last-child) {
+      grid-template-rows: repeat(2, 66px);
+    }
+
+    .collection-grid:has(.collection-card:nth-child(-n + 2):last-child) {
+      grid-template-rows: 66px;
+    }
+
+    .collection-grid .collection-card {
+      grid-column: var(--collection-mobile-column);
+      grid-row: var(--collection-mobile-row);
+    }
+
+    .collection-grid .collection-card:nth-child(n) {
+      border-top: 0;
+    }
+
+    .collection-grid .collection-card:nth-child(4n + 3),
+    .collection-grid .collection-card:nth-child(4n + 4) {
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-dialog[open],
+    .app-dialog[open]::backdrop {
+      animation: none;
+    }
+
+    .collection-slider::before,
+    .collection-slider::after {
+      transition: none;
+    }
+
+    #bookmark-action-rail .plain-button {
+      transition: none;
+    }
+  }
+</style>

@@ -30,6 +30,29 @@
 :root {
   --reading-max: 720px;
 }
+body,
+body * {
+  font-weight: 400 !important;
+}
+form :is(input, textarea, select) {
+  padding: 7px 9px;
+  min-height: 34px;
+}
+form textarea {
+  min-height: 58px;
+}
+form label {
+  gap: 5px;
+  margin-bottom: 12px;
+}
+:is(input, textarea, select):focus-visible {
+  outline: 1px solid var(--accent-text) !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+.command-input input:focus-visible {
+  outline: none !important;
+}
 :root,
 [data-theme='light'] {
   --background: #fff;
