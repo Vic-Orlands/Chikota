@@ -1615,18 +1615,30 @@
   }
   function keyboard(event: KeyboardEvent) {
     if (view !== 'library') return;
+    const target = event.target instanceof HTMLElement ? event.target : null;
     if (
       event.defaultPrevented ||
-      (event.target as HTMLElement).closest('[role="menu"]')
+      event.isComposing ||
+      target?.closest('[role="menu"]')
     )
       return;
     const key = event.key.toLowerCase();
     const command =
       (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey;
-    const target = event.target instanceof HTMLElement ? event.target : null;
+    const newBookmark =
+      event.altKey &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      (event.code === 'KeyN' || (!event.code && key === 'n'));
     if (command && key === 'k') {
       event.preventDefault();
       if (modal !== 'command') void openModal('command');
+      return;
+    }
+    if (newBookmark && modal === 'command') {
+      event.preventDefault();
+      openFromCommand('bookmark');
       return;
     }
     if (
@@ -1650,7 +1662,7 @@
       bookmarkSelectionAnchor = null;
       collectionSelectionAnchor = null;
     }
-    if (command && key === 'n') {
+    if (newBookmark) {
       event.preventDefault();
       void openModal('bookmark');
       return;
@@ -3323,10 +3335,12 @@
               class="command-results [max-height:min(430px,_65dvh)] overflow-y-auto [padding:7px] [&>p]:[margin:8px_9px_4px] [&>p]:[color:var(--muted-foreground)] [&>p]:[font-size:9px] [&>p]:[font-weight:550] [&>p]:[letter-spacing:0.08em] [&>p]:lowercase [&>button]:flex [&>button]:items-center [&>button]:[gap:var(--icon-text-gap)] [&>button]:w-full [&>button]:[min-height:38px] [&>button]:[padding:7px_9px] [&>button]:border-0 [&>button]:[border-radius:5px] [&>button]:bg-none [&>button]:[color:var(--foreground)] [&>button]:text-left [&>button]:[font-size:var(--modal-body-font-size)] [&>button]:leading-none [&>button>svg]:block [&>button>svg]:shrink-0 [&>a]:flex [&>a]:items-center [&>a]:[gap:var(--icon-text-gap)] [&>a]:w-full [&>a]:[min-height:38px] [&>a]:[padding:7px_9px] [&>a]:border-0 [&>a]:[border-radius:5px] [&>a]:bg-none [&>a]:[color:var(--foreground)] [&>a]:text-left [&>a]:[font-size:var(--modal-body-font-size)] [&>button:hover]:outline-0 [&>button:hover]:[background:var(--secondary)] [&>button:focus-visible]:outline-0 [&>button:focus-visible]:[background:var(--secondary)] [&>a:hover]:outline-0 [&>a:hover]:[background:var(--secondary)] [&>a:focus-visible]:outline-0 [&>a:focus-visible]:[background:var(--secondary)] [&>button>.single-shortcut]:ml-auto [&>button>.single-shortcut]:[color:var(--muted-foreground)] [&>a>svg]:[margin-left:auto] [&>a>svg]:[color:var(--muted-foreground)] [&_.single-shortcut]:inline-flex [&_.single-shortcut]:items-center [&_.single-shortcut]:[gap:var(--icon-text-gap)] [&_strong]:block [&_strong]:overflow-hidden [&_strong]:whitespace-nowrap [&_strong]:text-ellipsis [&_small]:block [&_small]:overflow-hidden [&_small]:whitespace-nowrap [&_small]:text-ellipsis [&_strong]:[font-size:var(--modal-body-font-size)] [&_strong]:font-medium [&_strong]:[line-height:1.4] [&_small]:[color:var(--muted-foreground)] [&_small]:[font-size:var(--secondary-text-font-size)] [&_small]:[line-height:1.4]"
             >
               <p>actions</p>
-              <button onclick={() => openFromCommand('bookmark')}
+              <button
+                aria-keyshortcuts="Alt+N"
+                onclick={() => openFromCommand('bookmark')}
                 ><Plus /><span>save a link</span><span
                   class="single-shortcut"
-                  aria-label="cmd+n"><CommandKey size={12} />N</span
+                  aria-label="option or alt plus n">⌥ N</span
                 ></button
               ><button onclick={() => openFromCommand('collection')}
                 ><FileTray /><span>new collection</span></button
@@ -3652,10 +3666,11 @@
               {:else if settingsTab === 'shortcuts'}
                 <h2 id="dialog-title">a few quick keys.</h2>
                 <p class="dialog-description">
-                  use cmd on mac, or ctrl on windows and linux.
+                  use cmd on mac, or ctrl on windows and linux. to save a
+                  bookmark, use option on mac or alt on windows and linux.
                 </p>
                 <dl class="settings-shortcuts">
-                  {#each [['cmd / ctrl + k', 'search bookmarks and commands'], ['cmd / ctrl + n', 'save a bookmark'], ['cmd / ctrl + a', 'select all visible bookmarks'], ['escape', 'close the active dialog, menu, or selection'], ['shift + click', 'select a range of bookmarks or collections'], ['tab / shift + tab', 'move between controls'], ['enter / space', 'activate the focused control'], ['↑ / ↓ / home / end', 'navigate an open bookmark menu'], ['cmd / ctrl + o', 'open the bookmark'], ['cmd / ctrl + e', 'edit the bookmark'], ['cmd / ctrl + r', 'set or edit its reminder'], ['cmd / ctrl + p', 'pin or unpin the bookmark'], ['cmd / ctrl + m', 'mark as read or unread'], ['cmd / ctrl + w', 'add to or remove from the mac widget'], ['cmd / ctrl + d', 'open bookmark deletion confirmation'], ['alt + t', 'focus notifications']] as [keys, action]}
+                  {#each [['cmd / ctrl + k', 'search bookmarks and commands'], ['option / alt + n', 'save a bookmark'], ['cmd / ctrl + a', 'select all visible bookmarks'], ['escape', 'close the active dialog, menu, or selection'], ['shift + click', 'select a range of bookmarks or collections'], ['tab / shift + tab', 'move between controls'], ['enter / space', 'activate the focused control'], ['↑ / ↓ / home / end', 'navigate an open bookmark menu'], ['cmd / ctrl + o', 'open the bookmark'], ['cmd / ctrl + e', 'edit the bookmark'], ['cmd / ctrl + r', 'set or edit its reminder'], ['cmd / ctrl + p', 'pin or unpin the bookmark'], ['cmd / ctrl + m', 'mark as read or unread'], ['cmd / ctrl + w', 'add to or remove from the mac widget'], ['cmd / ctrl + d', 'open bookmark deletion confirmation'], ['alt + t', 'focus notifications']] as [keys, action]}
                     <div>
                       <dt>{keys}</dt>
                       <dd>{action}</dd>
