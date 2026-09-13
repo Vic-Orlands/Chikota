@@ -769,6 +769,7 @@
   ) {
     closeContext();
     closeRemindersPanel();
+    pinnedPanelOpen = false;
     editing = bookmark;
     formError = '';
     if (value === 'bookmark') {
@@ -1496,6 +1497,38 @@
     if (context) menuTrigger?.focus();
     context = null;
   }
+  function runBookmarkShortcut(key: string, bookmark: Bookmark) {
+    switch (key) {
+      case 'o':
+        recordOpen(bookmark.id);
+        window.open(bookmark.url, '_blank', 'noopener,noreferrer');
+        closeContext();
+        break;
+      case 'e':
+        void openModal('bookmark', bookmark);
+        break;
+      case 'r':
+        void openModal('reminder', bookmark);
+        break;
+      case 'p':
+        toggleFlag(bookmark.id, 'pinned');
+        break;
+      case 'm':
+        toggleFlag(bookmark.id, 'read');
+        break;
+      case 'w':
+        if (!data.session) return false;
+        void toggleWidgetBookmark(bookmark);
+        break;
+      case 'd':
+        selected = [bookmark.id];
+        void openModal('delete');
+        break;
+      default:
+        return false;
+    }
+    return true;
+  }
   function contextKeys(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -1587,13 +1620,20 @@
       (event.target as HTMLElement).closest('[role="menu"]')
     )
       return;
-    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+    const key = event.key.toLowerCase();
+    const command =
+      (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey;
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (command && key === 'k') {
       event.preventDefault();
       if (modal !== 'command') void openModal('command');
       return;
     }
     if (
-      (event.target as HTMLElement).closest('input,textarea,select,dialog') ||
+      target?.closest(
+        'input:not([type="checkbox"]),textarea,select,[contenteditable="true"],dialog,[role="dialog"]'
+      ) ||
+      modal ||
       context
     )
       return;
@@ -1610,13 +1650,29 @@
       bookmarkSelectionAnchor = null;
       collectionSelectionAnchor = null;
     }
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+    if (command && key === 'n') {
       event.preventDefault();
       void openModal('bookmark');
+      return;
     }
-    if ((event.metaKey || event.ctrlKey) && event.key === 'a') {
+    if (command && key === 'a') {
       event.preventDefault();
       selected = visible.map((b) => b.id);
+      selectMode = true;
+      selectedCollections = [];
+      return;
+    }
+    if (command && ['o', 'e', 'r', 'p', 'm', 'w', 'd'].includes(key)) {
+      const focusedId =
+        target?.closest<HTMLElement>('[data-bookmark]')?.dataset.bookmark;
+      const bookmark =
+        selectedBookmark ||
+        (selected.length === 0
+          ? $bookmarks.find((bookmark) => bookmark.id === focusedId)
+          : undefined);
+      if (!bookmark || (key === 'w' && !data.session)) return;
+      event.preventDefault();
+      runBookmarkShortcut(key, bookmark);
     }
   }
   function exportLibrary() {
@@ -4459,7 +4515,79 @@
     }
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 760px), (max-width: 1060px) and (pointer: coarse) {
+    .right-marker-fade {
+      display: none;
+    }
+
+    .reading-header {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .header-actions {
+      min-width: 0;
+    }
+
+    .date-group,
+    .date-group-body {
+      max-width: 100%;
+    }
+
+    .date-heading {
+      max-width: 100%;
+    }
+
+    .date-heading > span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dialog-inner h2,
+    .extension-panel h2,
+    .pinned-panel-heading :global(h2) {
+      font-size: 28px;
+      overflow-wrap: anywhere;
+    }
+
+    .bookmark-title {
+      font-size: 13px;
+    }
+
+    .mobile-pinned-list strong {
+      font-size: 13px;
+    }
+
+    .mobile-pinned-list small {
+      font-size: 12px;
+    }
+
+    .floating-library-tabs {
+      max-width: calc(100% - 20px);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .selection-toolbar {
+      max-width: calc(100% - 20px);
+    }
+
+    .bookmark-selection-toolbar > span {
+      font-size: 12px;
+    }
+
+    .selection-dock-tooltip {
+      display: none;
+    }
+
+    .reminder-table-head,
+    .reminder-table-row {
+      grid-template-columns:
+        minmax(0, 1fr) minmax(0, 76px) minmax(0, 64px)
+        minmax(0, 42px) 24px;
+      column-gap: 4px;
+    }
+
     .extension-panel,
     .reminders-panel {
       top: 50% !important;
@@ -4513,6 +4641,10 @@
   }
 
   @media (max-width: 520px) {
+    .floating-library-tabs {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
     .collection-grid {
       grid-auto-columns: 50%;
     }

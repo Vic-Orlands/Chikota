@@ -30,6 +30,17 @@
 :root {
   --reading-max: 720px;
 }
+html {
+  width: 100%;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
 body,
 body * {
   font-weight: 400 !important;
@@ -122,6 +133,66 @@ form label {
   --row-hover: #1d1713;
   --soft-border: #2d231c;
   --shadow: 0 18px 70px #0006;
+}
+@media (max-width: 760px), (max-width: 1060px) and (pointer: coarse) {
+  :root,
+  [data-theme] {
+    --body-font-size: 13px;
+    --secondary-text-font-size: 12px;
+    --section-label-font-size: 13px;
+    --modal-body-font-size: 13px;
+  }
+
+  .reading-column,
+  .landing {
+    min-width: 0;
+    max-width: calc(100% - 20px);
+  }
+
+  .wordmark h1 {
+    font-size: 26px !important;
+  }
+
+  .section-toggle h2,
+  .library-title h2,
+  .features h3,
+  .preview-title {
+    font-size: 22px !important;
+  }
+
+  .hero h2 {
+    font-size: clamp(40px, 8vw, 60px);
+  }
+
+  .lede {
+    font-size: 13px;
+  }
+
+  .features p,
+  .preview-row strong {
+    font-size: 12px !important;
+  }
+
+  .theme-pill,
+  .eyebrow,
+  .preview-count,
+  .preview-row small {
+    font-size: 10px !important;
+  }
+
+  .landing-foot,
+  .hero button {
+    font-size: 11px !important;
+  }
+
+  .tour-card h2 {
+    font-size: 30px;
+  }
+
+  form :is(input, textarea, select) {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 @keyframes appear {
   from {
