@@ -6,26 +6,42 @@
     <title>chikota extension settings</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Ruthie&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Ruthie&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="options.css" />
   </head>
-  <body>
-    <main>
-      <h1>chikota.</h1>
-      <h2>a home for your good finds.</h2>
-      <p>
+  <body
+    class="m-0 bg-[light-dark(#f8f9f8,#0c1510)] font-['IBM_Plex_Sans',sans-serif] text-sm leading-[1.7] text-[light-dark(#252824,#e6ebe5)] lowercase [color-scheme:light_dark] [font-optical-sizing:auto] [font-variation-settings:'wdth'_100]"
+  >
+    <main class="mx-auto my-20 max-w-[440px] p-6">
+      <h1
+        class="font-['Ruthie',cursive] text-[44px] font-normal not-italic tracking-normal"
+      >
+        chikota.
+      </h1>
+      <h2 class="font-['Ruthie',cursive] text-[34px] font-normal not-italic">
+        a home for your good finds.
+      </h2>
+      <p class="opacity-75">
         set the address of your chikota app. saved links open there and are
         added to your reading list.
       </p>
       <form>
-        <label for="url">chikota address</label
+        <label class="mt-7 mb-2 block" for="url">chikota address</label
         ><input
+          class="box-border w-full rounded-lg border border-[#839181] bg-transparent p-3.5 font-[inherit] text-inherit focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#849f82]"
           id="url"
           type="url"
           placeholder="http://localhost:5173"
           required
-        /><button>save address</button>
-        <p id="status" role="status"></p>
+        /><button
+          class="mt-4 cursor-pointer rounded-[7px] border-0 bg-[#345b43] px-5 py-3 font-[inherit] text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#849f82]"
+        >
+          save address
+        </button>
+        <p class="opacity-75" id="status" role="status"></p>
       </form>
     </main>
     <script src="options.js"></script>

@@ -14,6 +14,11 @@ function harness(address = 'https://reading.example.com') {
   const badges = [];
   const chrome = {
     runtime: {
+      onMessage: {
+        addListener: (fn) => {
+          events.message = fn;
+        }
+      },
       onInstalled: {
         addListener: (fn) => {
           events.install = fn;
@@ -47,6 +52,108 @@ function harness(address = 'https://reading.example.com') {
   return { events, menus, opened, badges };
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+const contentSource = await readFile(
+  new URL('../extension/content.js', import.meta.url),
+  'utf8'
+);
+
+test('copy reminder filters text and preserves the clipboard until the user chooses to save', async () => {
+  let copy;
+  let selection = '';
+  const roots = [];
+  const created = [];
+  const messages = [];
+  const makeElement = () => {
+    const node = {
+      append() {},
+      setAttribute() {},
+      remove() {},
+      attachShadow: () => makeElement()
+    };
+    created.push(node);
+    return node;
+  };
+  runInNewContext(contentSource, {
+    URL,
+    HTMLInputElement: class {},
+    HTMLTextAreaElement: class {},
+    document: {
+      activeElement: null,
+      addEventListener: (_, callback) => {
+        copy = callback;
+      },
+      createElement: makeElement,
+      documentElement: { append: (node) => roots.push(node) }
+    },
+    window: { getSelection: () => ({ toString: () => selection }) },
+    chrome: {
+      runtime: {
+        sendMessage: async (message) => {
+          messages.push(message);
+          return { ok: true };
+        }
+      }
+    },
+    clearTimeout() {},
+    setTimeout() {}
+  });
+  for (selection of [
+    'ordinary text',
+    'javascript:alert(1)',
+    'file:///private/example'
+  ])
+    copy({ isTrusted: true });
+  assert.equal(roots.length, 0);
+  selection = 'https://example.com/copied';
+  copy({ isTrusted: false });
+  assert.equal(roots.length, 0);
+  copy({ isTrusted: true });
+  assert.equal(roots.length, 1);
+  assert.equal(messages.length, 0);
+  await created.find((node) => node.className === 'save').onclick();
+  assert.equal(messages[0].url, selection);
+});
+
+test('copied URL reminder opens the save form only after its action is selected', async () => {
+  const h = harness();
+  const responses = [];
+  assert.equal(h.opened.length, 0);
+  assert.equal(
+    h.events.message(
+      { type: 'save-copied-link', url: 'https://example.com/copied?q=1' },
+      { tab: { id: 7 } },
+      (response) => responses.push(response)
+    ),
+    true
+  );
+  await settle();
+  assert.equal(
+    new URL(h.opened[0].url).searchParams.get('save'),
+    'https://example.com/copied?q=1'
+  );
+  assert.equal(responses[0].ok, true);
+});
+
+test('copied link messages reject non-web URLs and senders without a tab', async () => {
+  const h = harness();
+  for (const url of [
+    'javascript:alert(1)',
+    'file:///private/example',
+    'invalid'
+  ])
+    h.events.message(
+      { type: 'save-copied-link', url },
+      { tab: { id: 7 } },
+      () => {}
+    );
+  h.events.message(
+    { type: 'save-copied-link', url: 'https://example.com' },
+    {},
+    () => {}
+  );
+  await settle();
+  assert.equal(h.opened.length, 0);
+});
 
 test('installation registers both context actions without duplicate menus', async () => {
   const h = harness();
