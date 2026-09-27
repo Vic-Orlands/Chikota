@@ -4,13 +4,10 @@
   import { themeStore, type Theme } from '$lib/stores/theme.svelte';
   import {
     Archive,
-    ArrowRight,
     Bell,
     BookmarkFilled,
     Pin
   } from '$lib/components/icons/radix';
-
-  let { onenter }: { onenter: () => void } = $props();
 
   let signingIn = $state(false);
 
@@ -62,10 +59,10 @@
 </svelte:head>
 
 <div
-  class="landing [width:min(820px,_calc(100%_-_40px))] [margin:0_auto] [min-height:100dvh] flex flex-col [border-inline:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] max-[720px]:[width:calc(100%_-_28px)] max-[520px]:[width:calc(100%_-_20px)]"
+  class="landing [width:min(820px,_calc(100%_-_40px))] [margin:0_auto] [min-height:100dvh] flex flex-col max-[720px]:[width:calc(100%_-_28px)] max-[520px]:[width:calc(100%_-_20px)]"
 >
   <header
-    class="landing-bar flex items-center justify-between [gap:16px] [padding:18px_10px] [min-height:72px] max-[720px]:flex-wrap max-[720px]:[padding:16px_10px_8px]"
+    class="landing-bar flex items-center justify-between [gap:16px] [padding-block:18px] [min-height:72px] max-[720px]:flex-wrap max-[720px]:[padding-block:16px_8px]"
   >
     <a
       class="wordmark flex items-center [gap:10px] [width:fit-content] [&_h1]:[font-size:32px] [&_h1]:font-normal [&_h1]:[letter-spacing:normal] [&_h1]:m-0 [&_svg]:[color:var(--foreground)] max-[520px]:[&_h1]:[font-size:30px]"
@@ -99,9 +96,7 @@
     </div>
   </header>
 
-  <main
-    class="landing-main flex-1 flex flex-col [padding:12px_22px_36px] max-[720px]:[padding-inline:14px] max-[520px]:[padding-inline:10px]"
-  >
+  <main class="landing-main flex-1 flex flex-col [padding-block:12px_36px]">
     <section
       class="hero [max-width:34rem] [padding:28px_0_36px] max-[720px]:[padding-top:18px] motion-safe:[animation:rise_520ms_cubic-bezier(0.22,_1,_0.36,_1)_both]"
     >
@@ -121,24 +116,15 @@
         a quiet place for the links you want to keep. save a find, pin it, come
         back when you have a moment — not another folder of forgotten bookmarks.
       </p>
-      <div
-        class="cta flex flex-wrap [gap:8px] [margin-top:28px] max-[520px]:flex-col max-[520px]:items-stretch"
-      >
+      <div class="cta flex flex-wrap [gap:8px] [margin-top:28px]">
         <button
           type="button"
-          class="primary-button enter inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--primary)] [color:var(--primary-foreground)] [&:hover]:[filter:brightness(1.12)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)] [min-height:38px] [padding:8px_14px] [font-size:12px] max-[520px]:w-full"
-          onclick={onenter}
-        >
-          start collecting<ArrowRight size={14} />
-        </button>
-        <button
-          type="button"
-          class="secondary-button google inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_transparent] [border-radius:6px] [padding:7px_10px] [font-size:var(--body-font-size)] font-medium [min-height:30px] whitespace-nowrap [background:var(--card)] [border-color:var(--border)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)] [min-height:38px] [padding:8px_14px] [font-size:12px] max-[520px]:w-full"
+          class="secondary-button google inline-flex items-center justify-center [gap:var(--icon-text-gap)] [border:1px_solid_var(--border)] [border-radius:6px] [padding:5px_9px] [font-size:11px] [min-height:30px] whitespace-nowrap [background:var(--card)] [&:hover]:[background:var(--secondary)] motion-safe:[transition:transform_120ms_ease] motion-safe:[&:active]:[transform:scale(0.97)]"
           disabled={signingIn}
           onclick={signIn}
         >
           <svg
-            class="google-mark [width:14px] [height:14px]"
+            class="google-mark [width:12px] [height:12px]"
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
@@ -204,7 +190,7 @@
     </section>
 
     <section
-      class="features grid [grid-template-columns:repeat(3,_minmax(0,_1fr))] [gap:0] [margin-top:28px] [border-top:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] [&_article]:[padding:22px_18px_8px_0] [&_article+article]:[padding-left:18px] [&_article+article]:[border-left:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] [&_h3]:flex [&_h3]:items-center [&_h3]:[gap:8px] [&_h3]:[margin:0_0_8px] [&_h3]:[font-size:26px] [&_p]:m-0 [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:13px] [&_p]:[line-height:1.5] max-[720px]:[grid-template-columns:1fr] max-[720px]:[&_article]:[padding:18px_0] max-[720px]:[&_article]:[border-left:0] max-[720px]:[&_article]:[border-top:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] max-[720px]:[&_article+article]:[padding:18px_0] max-[720px]:[&_article+article]:[border-left:0] max-[720px]:[&_article+article]:[border-top:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] motion-safe:[animation:rise_520ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[animation-delay:140ms]"
+      class="features grid [grid-template-columns:repeat(3,_minmax(0,_1fr))] [gap:0] [margin-top:44px] [border-block:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] [&_article]:[padding:22px_18px_22px_0] [&_article+article]:[padding-left:18px] [&_article+article]:[border-left:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] [&_h3]:flex [&_h3]:items-center [&_h3]:[gap:8px] [&_h3]:[margin:0_0_8px] [&_h3]:[font-size:26px] [&_p]:m-0 [&_p]:[color:var(--muted-foreground)] [&_p]:[font-size:13px] [&_p]:[line-height:1.5] max-[720px]:[grid-template-columns:1fr] max-[720px]:[&_article]:[padding:18px_0] max-[720px]:[&_article]:[border-left:0] max-[720px]:[&_article+article]:[padding:18px_0] max-[720px]:[&_article+article]:[border-left:0] max-[720px]:[&_article+article]:[border-top:1px_solid_color-mix(in_srgb,_var(--border)_58%,_transparent)] motion-safe:[animation:rise_520ms_cubic-bezier(0.22,_1,_0.36,_1)_both] motion-safe:[animation-delay:140ms]"
       aria-label="what chikota is for"
     >
       <article>
@@ -232,10 +218,57 @@
   </main>
 
   <footer
-    class="landing-foot [padding:18px_22px_28px] [color:var(--muted-foreground)] [font-size:12px] [&_p]:m-0 [&_p]:[max-width:28rem] max-[520px]:[padding-inline:10px]"
+    class="landing-foot flex flex-wrap items-center justify-between [gap:12px_24px] [padding-block:18px_28px] [color:var(--muted-foreground)] [font-size:12px] [&_p]:m-0 [&_p]:[max-width:28rem]"
   >
     <p>
       “chikọta” is igbo for gather. a small room for the web you mean to keep.
     </p>
+    <div class="flex items-center [gap:14px]">
+      <a
+        href="https://mezie.dev"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="whitespace-nowrap [color:inherit] [text-decoration:none] hover:[color:var(--foreground)] focus-visible:[outline:2px_solid_var(--accent-text)] focus-visible:[outline-offset:3px]"
+        >Built by MezieIV</a
+      >
+      <a
+        href="https://github.com/Vic-Orlands"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="MezieIV on GitHub"
+        class="inline-flex [color:inherit] hover:[color:var(--foreground)] focus-visible:[outline:2px_solid_var(--accent-text)] focus-visible:[outline-offset:3px]"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.54v-2.12c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.23-1.62-1.23-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15.99 1.7 2.6 1.21 3.23.93.1-.72.39-1.21.7-1.49-2.47-.28-5.07-1.24-5.07-5.49 0-1.21.43-2.2 1.14-2.98-.12-.28-.5-1.41.11-2.94 0 0 .93-.3 3.05 1.14A10.6 10.6 0 0 1 12 6.17c.94 0 1.88.13 2.76.37 2.12-1.44 3.05-1.14 3.05-1.14.61 1.53.23 2.66.11 2.94.71.78 1.14 1.77 1.14 2.98 0 4.26-2.6 5.2-5.08 5.48.4.35.75 1.04.75 2.1v3.09c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"
+          />
+        </svg>
+      </a>
+      <a
+        href="https://www.linkedin.com/in/victor-innocent"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="MezieIV on LinkedIn"
+        class="inline-flex [color:inherit] hover:[color:var(--foreground)] focus-visible:[outline:2px_solid_var(--accent-text)] focus-visible:[outline-offset:3px]"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            d="M20.45 2H3.55C2.69 2 2 2.68 2 3.52v16.96c0 .84.69 1.52 1.55 1.52h16.9c.86 0 1.55-.68 1.55-1.52V3.52c0-.84-.69-1.52-1.55-1.52ZM7.93 18.75H4.98V9.2h2.95v9.55ZM6.46 7.9a1.71 1.71 0 1 1 0-3.42 1.71 1.71 0 0 1 0 3.42Zm12.3 10.85h-2.95V14.1c0-1.11-.02-2.54-1.55-2.54-1.55 0-1.79 1.21-1.79 2.46v4.73H9.52V9.2h2.83v1.3h.04c.39-.74 1.36-1.52 2.79-1.52 2.98 0 3.58 1.96 3.58 4.51v5.26Z"
+          />
+        </svg>
+      </a>
+    </div>
   </footer>
 </div>

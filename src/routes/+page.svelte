@@ -93,14 +93,6 @@
       localStorage.setItem(guideKey, 'seen');
     } catch {}
   }
-  function enterLibrary() {
-    try {
-      localStorage.setItem('chikota-entered', '1');
-    } catch {}
-    guestView = 'library';
-    revealPlatformCallout();
-    if (!ready) void initialize().then(checkReminders);
-  }
   let loadError = $state('');
   let saving = $state(false);
   let selected = $state<string[]>([]);
@@ -111,6 +103,7 @@
   let selectionTooltipWarmFrame: number | undefined;
   let selectionTooltipResetTimer: number | undefined;
   let listToolsOpen = $state(false);
+  let accountMenuOpen = $state(false);
   let pinnedPanelOpen = $state(false);
   let pinnedPageOrigin = $state(0);
   let selectedBookmark = $derived(
@@ -211,14 +204,12 @@
   let collapsedGroups = $state<string[]>([]);
   let stickyLibraryHeader = $state<HTMLElement>();
   let dateDeck = $state<DateDeckItem[]>([]);
-  let freshDateDeckKeys = $state<string[]>([]);
+  let crossedDateKeys = $state<string[]>([]);
   let dateDeckTop = $state(0);
   let dateDeckRight = $state(0);
   let dateDeckFrame: number | undefined;
-  let dateDeckFreshFrame: number | undefined;
-  let dateDeckObservers: IntersectionObserver[] = [];
-  let crossedDateKeys = new Set<string>();
   const dateDeckRowHeight = 46;
+  const maxDateDeckRows = 6;
   let groups = $derived.by(() => {
     const grouped = new Map<string, Bookmark[]>();
     for (const bookmark of visible) {
@@ -247,9 +238,12 @@
       ? collapsedGroups.filter((value) => value !== date)
       : [...collapsedGroups, date];
   }
-  function compactDateDeck(crossedDates: string[]) {
+  function compactDateDeck(
+    crossedDates: string[],
+    groupByDate: Map<string, (typeof groups)[number]>
+  ) {
     const crossed = crossedDates
-      .map((date) => groups.find((group) => group.date === date))
+      .map((date) => groupByDate.get(date))
       .filter((group) => group !== undefined);
     const active = crossed[crossed.length - 1];
     if (!active) return [];
@@ -297,45 +291,15 @@
     }
     return compacted;
   }
-  function refreshDateDeck() {
-    const crossedDates = groups
-      .map((group) => group.date)
-      .filter((date) => crossedDateKeys.has(date));
-    const next = compactDateDeck(crossedDates);
-    const currentSignature = dateDeck
-      .map((item) => `${item.key}:${item.dates.join(',')}:${item.count}`)
-      .join('|');
-    const nextSignature = next
-      .map((item) => `${item.key}:${item.dates.join(',')}:${item.count}`)
-      .join('|');
-    if (currentSignature === nextSignature) return;
-    const currentKeys = new Set(dateDeck.map((item) => item.key));
-    freshDateDeckKeys = next
-      .filter((item) => !currentKeys.has(item.key))
-      .map((item) => item.key);
-    dateDeck = next;
-    if (dateDeckFreshFrame) window.cancelAnimationFrame(dateDeckFreshFrame);
-    dateDeckFreshFrame = window.requestAnimationFrame(() => {
-      dateDeckFreshFrame = window.requestAnimationFrame(() => {
-        freshDateDeckKeys = [];
-        dateDeckFreshFrame = undefined;
-      });
-    });
-  }
-  function connectDateDeckObserver() {
+  function updateDateDeck() {
     dateDeckFrame = undefined;
-    if (dateDeckFreshFrame) window.cancelAnimationFrame(dateDeckFreshFrame);
-    dateDeckFreshFrame = undefined;
-    for (const observer of dateDeckObservers) observer.disconnect();
-    dateDeckObservers = [];
     if (
       !stickyLibraryHeader ||
       view !== 'library' ||
       !window.matchMedia('(min-width: 1061px)').matches
     ) {
-      crossedDateKeys = new Set();
-      freshDateDeckKeys = [];
       dateDeck = [];
+      crossedDateKeys = [];
       return;
     }
     const boundary = Math.ceil(
@@ -348,43 +312,45 @@
     dateDeckRight = firstGroup
       ? window.innerWidth - firstGroup.getBoundingClientRect().left + 12
       : 0;
-    crossedDateKeys = new Set();
+    const availableRows = Math.max(
+      1,
+      Math.min(
+        maxDateDeckRows,
+        Math.floor(
+          (window.innerHeight - boundary - dateDeckRowHeight) /
+            dateDeckRowHeight
+        )
+      )
+    );
+    const groupByDate = new Map(groups.map((group) => [group.date, group]));
+    const crossedDates: string[] = [];
+    let compacted: DateDeckItem[] = [];
     document
       .querySelectorAll<HTMLElement>('.date-sentinel[data-date-key]')
-      .forEach((element, groupIndex) => {
-        const crossedThroughGroup = groups
-          .slice(0, groupIndex + 1)
-          .map((group) => group.date);
-        const predictedDeck = compactDateDeck(crossedThroughGroup);
-        const slotIndex = Math.max(predictedDeck.length - 1, 0);
-        const slotBoundary = boundary + slotIndex * dateDeckRowHeight;
+      .forEach((element) => {
+        const date = element.dataset.dateKey;
+        if (!date) return;
+        const slotIndex = Math.min(compacted.length, availableRows - 1);
         if (
-          element.getBoundingClientRect().top <= slotBoundary &&
-          element.dataset.dateKey
-        )
-          crossedDateKeys.add(element.dataset.dateKey);
-        const observer = new IntersectionObserver(
-          ([entry]) => {
-            const date = (entry.target as HTMLElement).dataset.dateKey;
-            if (!date) return;
-            if (
-              !entry.isIntersecting &&
-              entry.boundingClientRect.top <= slotBoundary
-            )
-              crossedDateKeys.add(date);
-            else crossedDateKeys.delete(date);
-            refreshDateDeck();
-          },
-          { rootMargin: `-${slotBoundary}px 0px 0px 0px`, threshold: 0 }
-        );
-        observer.observe(element);
-        dateDeckObservers.push(observer);
+          element.getBoundingClientRect().top <=
+          boundary + slotIndex * dateDeckRowHeight
+        ) {
+          crossedDates.push(date);
+          compacted = compactDateDeck(crossedDates, groupByDate);
+        }
       });
-    refreshDateDeck();
+    const next = compacted.slice(-availableRows);
+    if (crossedDateKeys.join('|') !== crossedDates.join('|'))
+      crossedDateKeys = crossedDates;
+    const signature = (items: DateDeckItem[]) =>
+      items
+        .map((item) => `${item.key}:${item.dates.join(',')}:${item.count}`)
+        .join('|');
+    if (signature(dateDeck) !== signature(next)) dateDeck = next;
   }
-  function scheduleDateDeckObserver() {
+  function scheduleDateDeckUpdate() {
     if (dateDeckFrame) return;
-    dateDeckFrame = window.requestAnimationFrame(connectDateDeckObserver);
+    dateDeckFrame = window.requestAnimationFrame(updateDateDeck);
   }
   function syncCollectionOverflow() {
     if (!collectionScroller) return;
@@ -425,9 +391,10 @@
     collectionsOpen;
     if (view !== 'library') {
       dateDeck = [];
+      crossedDateKeys = [];
       return;
     }
-    void tick().then(scheduleDateDeckObserver);
+    void tick().then(scheduleDateDeckUpdate);
   });
   $effect(() => {
     $categories.length;
@@ -441,7 +408,10 @@
   });
   $effect(() => {
     if (!stickyLibraryHeader) return;
-    const observer = new ResizeObserver(syncPinnedArea);
+    const observer = new ResizeObserver(() => {
+      syncPinnedArea();
+      scheduleDateDeckUpdate();
+    });
     observer.observe(stickyLibraryHeader);
     return () => observer.disconnect();
   });
@@ -541,7 +511,10 @@
             : $categories.find((c) => c.id === section)?.name || 'collection'
   );
   onMount(() => {
-    window.addEventListener('resize', scheduleDateDeckObserver);
+    window.addEventListener('resize', scheduleDateDeckUpdate);
+    window.addEventListener('scroll', scheduleDateDeckUpdate, {
+      passive: true
+    });
     window.addEventListener('resize', syncCollectionOverflow);
     window.addEventListener('resize', syncPinnedArea);
     const navigatorWithPlatform = navigator as Navigator & {
@@ -570,19 +543,7 @@
     const incomingSave = Boolean(
       new URLSearchParams(location.search).get('save')
     );
-    let shouldOpen = Boolean(data.session) || incomingSave;
-    if (!shouldOpen) {
-      try {
-        shouldOpen = localStorage.getItem('chikota-entered') === '1';
-        if (!shouldOpen) {
-          const saved = localStorage.getItem('chikota-bookmarks');
-          const parsed = saved ? JSON.parse(saved) : [];
-          shouldOpen = Array.isArray(parsed) && parsed.length > 0;
-        }
-      } catch {
-        shouldOpen = false;
-      }
-    }
+    const shouldOpen = Boolean(data.session) || incomingSave;
     if (shouldOpen) {
       guestView = 'library';
       revealPlatformCallout();
@@ -623,7 +584,8 @@
     return () => {
       window.clearInterval(reminderTimer);
       window.removeEventListener('storage', refresh);
-      window.removeEventListener('resize', scheduleDateDeckObserver);
+      window.removeEventListener('resize', scheduleDateDeckUpdate);
+      window.removeEventListener('scroll', scheduleDateDeckUpdate);
       window.removeEventListener('resize', syncCollectionOverflow);
       window.removeEventListener('resize', syncPinnedArea);
       for (const timer of Object.values(copyResetTimers))
@@ -636,8 +598,6 @@
       if (selectionTooltipResetTimer)
         window.clearTimeout(selectionTooltipResetTimer);
       if (dateDeckFrame) window.cancelAnimationFrame(dateDeckFrame);
-      if (dateDeckFreshFrame) window.cancelAnimationFrame(dateDeckFreshFrame);
-      for (const observer of dateDeckObservers) observer.disconnect();
     };
   });
   async function initialize() {
@@ -1787,7 +1747,7 @@
     loading chikota
   </p>
 {:else if view === 'landing'}
-  <LandingPage onenter={enterLibrary} />
+  <LandingPage />
 {:else if view === 'library'}
   <div
     class:pinned-panel-open={pinnedPanelOpen}
@@ -1876,7 +1836,7 @@
               title="search bookmarks"
               onclick={() => openModal('command')}><SearchGrid /></button
             >
-            <DropdownMenu.Root>
+            <DropdownMenu.Root bind:open={accountMenuOpen}>
               <DropdownMenu.Trigger
                 data-tour="account"
                 class={[
@@ -1905,6 +1865,7 @@
                   class="list-options-menu [z-index:51] [min-width:160px] [padding:3px] [border:1px_solid_var(--border)] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] [transform-origin:var(--bits-floating-transform-origin)] [will-change:transform,_opacity] [&[data-state=open]]:[animation:account-menu-in_180ms_cubic-bezier(0.22,_1,_0.36,_1)_both] [&[data-state=closed]]:[animation:account-menu-out_120ms_ease-out_both] motion-reduce:[&[data-state]]:[animation:none]"
                   align="end"
                   sideOffset={8}
+                  preventScroll={false}
                 >
                   <DropdownMenu.Item
                     class="list-options-item flex items-center [gap:var(--icon-text-gap)] [min-height:30px] [padding:5px_8px] [border-radius:4px] [font-size:var(--body-font-size)] cursor-pointer outline-none [&[data-highlighted]]:[background:var(--secondary)] [&[data-state=checked]]:[background:var(--secondary)] [&[data-disabled]]:[opacity:0.5] [&[data-disabled]]:[cursor:default]"
@@ -2208,18 +2169,7 @@
         {:else if visible.length}
           {#each groups as group (group.date)}
             {@const collapsed = collapsedGroups.includes(group.date)}
-            {@const stackedItem = dateDeck.find(
-              (item) => item.key === `day-${group.date}`
-            )}
-            {@const stackIndex = stackedItem
-              ? dateDeck.indexOf(stackedItem)
-              : 0}
-            {@const freshStackedItem = stackedItem
-              ? freshDateDeckKeys.includes(stackedItem.key)
-              : false}
-            {@const headingCollapsed = (
-              stackedItem?.dates || [group.date]
-            ).every((date) => collapsedGroups.includes(date))}
+            {@const headingCollapsed = collapsed}
             <div
               data-date-key={group.date}
               class="date-group relative min-w-0 [&.collapsed_.date-group-body]:[min-height:46px] [&>.collapse-grid]:relative [&>.collapse-grid]:[z-index:1] [&>.collapse-grid]:[clip-path:inset(0)] [&>.collapse-grid]:min-w-0 [&>.collapse-grid]:max-w-full max-[1060px]:[&.collapsed]:min-h-0 max-[1060px]:[&.collapsed_.date-group-body]:[min-height:38px] motion-safe:[&>.collapse-grid]:[transition:grid-template-rows_250ms_cubic-bezier(0.22,_1,_0.36,_1),_opacity_180ms_ease-in-out]"
@@ -2231,28 +2181,17 @@
                 aria-hidden="true"
               ></span>
               <button
-                class={[
-                  'date-heading [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] justify-end [min-height:46px] [width:max-content] [font-size:var(--body-font-size)] max-[1060px]:static max-[1060px]:justify-start max-[1060px]:[min-height:38px]',
-                  stackedItem
-                    ? 'fixed [z-index:19] [will-change:transform] motion-reduce:transition-none'
-                    : 'absolute [right:calc(100%_+_12px)] [top:0]',
-                  stackedItem && !freshStackedItem
-                    ? 'motion-safe:[transition:transform_180ms_cubic-bezier(0.645,_0.045,_0.355,_1)]'
-                    : 'transition-none'
-                ]}
-                style:top={stackedItem ? `${dateDeckTop}px` : undefined}
-                style:right={stackedItem ? `${dateDeckRight}px` : undefined}
-                style:transform={stackedItem
-                  ? `translateY(${stackIndex * dateDeckRowHeight}px)`
+                class="date-heading [&_svg]:block flex items-center [gap:var(--icon-text-gap)] border-0 p-0 bg-none [color:var(--muted-foreground)] justify-end [min-height:46px] [width:max-content] [font-size:var(--body-font-size)] absolute [right:calc(100%_+_12px)] [top:0] max-[1060px]:static max-[1060px]:justify-start max-[1060px]:[min-height:38px]"
+                style:display={crossedDateKeys.includes(group.date)
+                  ? 'none'
                   : undefined}
+                inert={crossedDateKeys.includes(group.date) ? true : undefined}
+                aria-hidden={crossedDateKeys.includes(group.date)}
                 aria-expanded={!headingCollapsed}
-                onclick={() =>
-                  stackedItem
-                    ? openDateDeckItem(stackedItem)
-                    : toggleGroup(group.date)}
-                ><span>{stackedItem?.label || group.date}</span><span
+                onclick={() => toggleGroup(group.date)}
+                ><span>{group.date}</span><span
                   class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
-                  >{stackedItem?.count || group.items.length}</span
+                  >{group.items.length}</span
                 ><span
                   class="t-icon-swap date-icon-swap relative inline-grid [grid-template:15px_/_15px] [width:15px] [height:15px] overflow-hidden shrink-0 place-items-center [isolation:isolate] [vertical-align:middle] [&_.t-icon]:[grid-area:1_/_1] [&_.t-icon]:grid [&_.t-icon]:place-items-center [&_.t-icon]:[width:15px] [&_.t-icon]:[height:15px] [&_.t-icon]:overflow-hidden [&_.t-icon]:[line-height:0] [&_.t-icon]:[transition:opacity_var(--icon-swap-dur)_var(--icon-swap-ease),_filter_var(--icon-swap-dur)_var(--icon-swap-ease),_transform_var(--icon-swap-dur)_var(--icon-swap-ease),_visibility_var(--icon-swap-dur)_var(--icon-swap-ease)] [&_.t-icon]:[will-change:opacity,_filter,_transform] [&[data-state=closed]_.t-icon[data-icon=closed]]:opacity-100 [&[data-state=closed]_.t-icon[data-icon=closed]]:[visibility:visible] [&[data-state=closed]_.t-icon[data-icon=closed]]:[filter:blur(0)] [&[data-state=closed]_.t-icon[data-icon=closed]]:[transform:scale(1)] [&[data-state=opened]_.t-icon[data-icon=opened]]:opacity-100 [&[data-state=opened]_.t-icon[data-icon=opened]]:[visibility:visible] [&[data-state=opened]_.t-icon[data-icon=opened]]:[filter:blur(0)] [&[data-state=opened]_.t-icon[data-icon=opened]]:[transform:scale(1)] [&[data-state=closed]_.t-icon[data-icon=opened]]:opacity-0 [&[data-state=closed]_.t-icon[data-icon=opened]]:[visibility:hidden] [&[data-state=closed]_.t-icon[data-icon=opened]]:pointer-events-none [&[data-state=closed]_.t-icon[data-icon=opened]]:[filter:blur(var(--icon-swap-blur))] [&[data-state=closed]_.t-icon[data-icon=opened]]:[transform:scale(var(--icon-swap-start-scale))] [&[data-state=opened]_.t-icon[data-icon=closed]]:opacity-0 [&[data-state=opened]_.t-icon[data-icon=closed]]:[visibility:hidden] [&[data-state=opened]_.t-icon[data-icon=closed]]:pointer-events-none [&[data-state=opened]_.t-icon[data-icon=closed]]:[filter:blur(var(--icon-swap-blur))] [&[data-state=opened]_.t-icon[data-icon=closed]]:[transform:scale(var(--icon-swap-start-scale))] [&[data-state=closed]_[data-icon=opened]_.date-icon-glyph]:[transform:rotate(90deg)] [&[data-state=opened]_[data-icon=closed]_.date-icon-glyph]:[transform:rotate(-90deg)] motion-reduce:[&_.t-icon]:[transition:none!important]"
                   data-state={headingCollapsed ? 'closed' : 'opened'}
@@ -2308,7 +2247,7 @@
                         {@const bookmarkReminderStatus = reminderStatus(b)}
                         <div
                           data-bookmark={b.id}
-                          class="bookmark-row min-w-0 w-full max-w-full flex items-center [gap:12px] [min-height:64px] [padding:14px] relative [isolation:isolate] overflow-visible cursor-pointer [&+.bookmark-row]:[border-top:1px_solid_var(--border)] [&::before]:[content:''] [&::before]:absolute [&::before]:[z-index:0] [&::before]:[inset:0] [&::before]:bg-transparent [&::before]:pointer-events-none [&>*]:relative [&>*]:[z-index:1] [&:hover]:bg-transparent [&:hover::before]:[background:var(--row-hover)] [&.selected]:bg-transparent [&.selected]:[box-shadow:none] [&.selected::before]:[background:var(--accent-soft)] [&.context-active::before]:[background:color-mix(in_srgb,_var(--row-hover)_80%,_var(--foreground)_4%)] [&:focus-visible]:[outline:2px_solid_var(--accent-text)] [&:focus-visible]:[outline-offset:-2px] [&:hover_.row-actions_.icon-button]:opacity-100 max-[520px]:[gap:10px] max-[520px]:[padding:12px] motion-safe:[transition:background-color_140ms_ease]"
+                          class="bookmark-row min-w-0 w-full max-w-full flex items-center [gap:12px] [min-height:64px] [padding:14px] relative [isolation:isolate] overflow-visible cursor-pointer [&::before]:[content:''] [&::before]:absolute [&::before]:[z-index:0] [&::before]:[inset:0] [&::before]:bg-transparent [&::before]:pointer-events-none [&>*]:relative [&>*]:[z-index:1] [&:hover]:bg-transparent [&:hover::before]:[background:var(--row-hover)] [&.selected]:bg-transparent [&.selected]:[box-shadow:none] [&.selected::before]:[background:var(--accent-soft)] [&.context-active::before]:[background:color-mix(in_srgb,_var(--row-hover)_80%,_var(--foreground)_4%)] [&:focus-visible]:[outline:2px_solid_var(--accent-text)] [&:focus-visible]:[outline-offset:-2px] [&:hover_.row-actions_.icon-button]:opacity-100 max-[520px]:[gap:10px] max-[520px]:[padding:12px] motion-safe:[transition:background-color_140ms_ease]"
                           role="option"
                           tabindex="0"
                           aria-selected={selected.includes(b.id)}
@@ -2385,7 +2324,7 @@
                             class="bookmark-content min-w-0 overflow-hidden flex flex-col items-stretch [gap:3px] [flex:1_1_0%] max-[760px]:[gap:12px] max-[520px]:block"
                           >
                             <a
-                              class="bookmark-title min-w-0 block w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis [font-size:14px] font-medium [line-height:1.4] [&_svg]:hidden [&:hover]:underline [&:hover]:[text-underline-offset:3px] [.is-read_&]:[color:var(--muted-foreground)] max-[520px]:max-w-full max-[520px]:[width:auto] max-[520px]:[font-size:14px]"
+                              class="bookmark-title min-w-0 block w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis [font-size:13px] font-medium [line-height:1.4] [&_svg]:hidden [&:hover]:underline [&:hover]:[text-underline-offset:3px] [.is-read_&]:[color:var(--muted-foreground)] max-[520px]:max-w-full max-[520px]:[width:auto] max-[520px]:[font-size:13px]"
                               href={b.url}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -2395,7 +2334,7 @@
                               }}>{b.title}<ArrowUpRight size={14} /></a
                             >
                             <div
-                              class="bookmark-meta w-full max-w-full min-w-0 [font-size:var(--secondary-text-font-size)] [line-height:1.4] [color:var(--muted-foreground)] overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:[margin-top:3px] max-[520px]:[font-size:var(--secondary-text-font-size)]"
+                              class="bookmark-meta w-full max-w-full min-w-0 [font-size:12px] [line-height:1.4] [color:var(--muted-foreground)] opacity-70 overflow-hidden text-ellipsis whitespace-nowrap max-[520px]:[margin-top:3px] max-[520px]:[font-size:12px]"
                             >
                               <span>{b.url}</span>
                             </div>
@@ -2539,6 +2478,36 @@
     </main>
   </div>
 
+  {#if dateDeck.length}
+    <nav
+      class="date-rail fixed [z-index:19] flex flex-col items-end"
+      style:top={`${dateDeckTop}px`}
+      style:right={`${dateDeckRight}px`}
+      aria-label="bookmark dates"
+    >
+      {#each dateDeck as item (item.key)}
+        {@const collapsed = item.dates.every((date) =>
+          collapsedGroups.includes(date)
+        )}
+        <button
+          type="button"
+          class="date-heading flex items-center justify-end [gap:var(--icon-text-gap)] [min-height:46px] [width:max-content] p-0 border-0 bg-transparent [color:var(--muted-foreground)]"
+          aria-expanded={!collapsed}
+          onclick={() => openDateDeckItem(item)}
+        >
+          <span>{item.label}</span>
+          <span
+            class="count [font-size:10px] [font-variant-numeric:tabular-nums] [padding:3px_6px] [background:var(--secondary)] [color:var(--muted-foreground)] [border-radius:4px]"
+            >{item.count}</span
+          >
+          {#if collapsed}<ChevronDown size={15} />{:else}<DateGroupOpen
+              size={15}
+            />{/if}
+        </button>
+      {/each}
+    </nav>
+  {/if}
+
   <div
     class="fixed inset-x-0 bottom-0 z-20 mx-auto h-40 w-[min(var(--reading-max),calc(100%-40px))] bg-linear-to-t from-background via-background/80 to-transparent max-[760px]:w-[calc(100%-28px)] max-[520px]:h-24 max-[520px]:w-[calc(100%-20px)]"
     aria-hidden="true"
@@ -2648,6 +2617,13 @@
       </button>
     </span>
   </div>
+
+  {#if accountMenuOpen || extensionPanelOpen || widgetPanelOpen || linuxPanelOpen || remindersPanelOpen}
+    <div
+      class="fixed inset-0 [z-index:44] [background:#0008] pointer-events-none"
+      aria-hidden="true"
+    ></div>
+  {/if}
 
   {#if extensionPanelMounted}<div
       bind:this={extensionPanel}
@@ -3113,7 +3089,7 @@
     ></div>{/if}
   {#if reminderPopover && reminderTarget}
     <button
-      class="context-backdrop fixed [inset:0] bg-transparent border-0 [z-index:50] [cursor:default]"
+      class="context-backdrop fixed [inset:0] [background:#0008] border-0 [z-index:50] [cursor:default]"
       aria-label="close reminder"
       onclick={closeReminderPopover}
       tabindex="-1"
@@ -3187,7 +3163,7 @@
   {/if}
   {#if context}
     <button
-      class="bookmark-context-backdrop fixed [inset:0] bg-transparent border-0 [z-index:50] [cursor:default]"
+      class="bookmark-context-backdrop fixed [inset:0] [background:#0008] border-0 [z-index:50] [cursor:default]"
       aria-label="close context menu"
       onclick={closeContext}
       tabindex="-1"
@@ -3268,7 +3244,7 @@
 
   <dialog
     bind:this={dialog}
-    class="app-dialog [border:1px_solid_var(--border)] p-0 [width:480px] [max-width:calc(100vw_-_32px)] [max-height:90dvh] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] [margin:auto] overflow-y-auto [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&[open]]:[animation:appear_200ms_cubic-bezier(0.22,_1,_0.36,_1)] [&::backdrop]:[background:#00000065] [&::backdrop]:[backdrop-filter:blur(4px)] [&_input:focus]:outline-0 [&_input:focus]:[border-color:var(--border)] [&_input:focus]:[box-shadow:none] [&_input:focus-visible]:outline-0 [&_input:focus-visible]:[border-color:var(--border)] [&_input:focus-visible]:[box-shadow:none] [&_textarea:focus]:outline-0 [&_textarea:focus]:[border-color:var(--border)] [&_textarea:focus]:[box-shadow:none] [&_textarea:focus-visible]:outline-0 [&_textarea:focus-visible]:[border-color:var(--border)] [&_textarea:focus-visible]:[box-shadow:none] [&_select:focus]:outline-0 [&_select:focus]:[border-color:var(--border)] [&_select:focus]:[box-shadow:none] [&_select:focus-visible]:outline-0 [&_select:focus-visible]:[border-color:var(--border)] [&_select:focus-visible]:[box-shadow:none] [&.settings-dialog]:[width:680px] [&.command-positioned]:fixed [&.command-positioned]:m-0 [&.command-positioned]:[max-width:calc(100vw_-_20px)] [&.command-positioned]:[max-height:min(520px,_calc(100dvh_-_20px))] [&.command-positioned]:[border-radius:8px] [&.command-positioned]:overflow-hidden motion-reduce:[&[open]]:[animation:none]"
+    class="app-dialog [border:1px_solid_var(--border)] p-0 [width:480px] [max-width:calc(100vw_-_32px)] [max-height:90dvh] [border-radius:8px] [background:var(--card)] [color:var(--foreground)] [box-shadow:var(--shadow)] [margin:auto] overflow-y-auto [font-family:var(--font-sans)] [font-size:var(--modal-body-font-size)] [&[open]]:[animation:appear_200ms_cubic-bezier(0.22,_1,_0.36,_1)] [&::backdrop]:[background:#0008] [&::backdrop]:[backdrop-filter:blur(4px)] [&_input:focus]:outline-0 [&_input:focus]:[border-color:var(--border)] [&_input:focus]:[box-shadow:none] [&_input:focus-visible]:outline-0 [&_input:focus-visible]:[border-color:var(--border)] [&_input:focus-visible]:[box-shadow:none] [&_textarea:focus]:outline-0 [&_textarea:focus]:[border-color:var(--border)] [&_textarea:focus]:[box-shadow:none] [&_textarea:focus-visible]:outline-0 [&_textarea:focus-visible]:[border-color:var(--border)] [&_textarea:focus-visible]:[box-shadow:none] [&_select:focus]:outline-0 [&_select:focus]:[border-color:var(--border)] [&_select:focus]:[box-shadow:none] [&_select:focus-visible]:outline-0 [&_select:focus-visible]:[border-color:var(--border)] [&_select:focus-visible]:[box-shadow:none] [&.settings-dialog]:[width:680px] [&.command-positioned]:fixed [&.command-positioned]:m-0 [&.command-positioned]:[max-width:calc(100vw_-_20px)] [&.command-positioned]:[max-height:min(520px,_calc(100dvh_-_20px))] [&.command-positioned]:[border-radius:8px] [&.command-positioned]:overflow-hidden motion-reduce:[&[open]]:[animation:none]"
     class:command-positioned={modal === 'command'}
     class:settings-dialog={modal === 'settings'}
     style:top={modal === 'command' ? `${commandPosition.top}px` : undefined}
@@ -3706,19 +3682,20 @@
                     >{reminderBookmarks.length}<ArrowUpRight size={13} /></span
                   ></button
                 >
-              {:else}<h2 id="dialog-title">chikọta <span>v1.0.0</span></h2>
+              {:else}
+                <div
+                  class="about-mark [margin-bottom:15px] [color:var(--foreground)]"
+                >
+                  <BookmarkFilled />
+                </div>
+                <h2 id="dialog-title">chikọta <span>v1.0.0</span></h2>
                 <p
-                  class="about-copy [max-width:390px] [margin:12px_0_0] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [line-height:1.8]"
+                  class="about-copy [max-width:390px] [margin-top:12px] [color:var(--muted-foreground)] [font-size:var(--modal-body-font-size)] [line-height:1.8]"
                 >
                   “chikọta” is igbo for “bring together”—a quiet, beautiful
                   place to gather the links you want to keep, read, and
                   rediscover.
                 </p>
-                <div
-                  class="about-mark grid place-items-center [width:42px] [height:42px] [margin-top:38px] [border:1px_solid_var(--border)] [border-radius:8px] [color:var(--foreground)]"
-                >
-                  <BookmarkFilled />
-                </div>
               {/if}
             </section>
           </div>
@@ -3816,7 +3793,7 @@
     position: fixed;
     inset: 0;
     z-index: 49;
-    background: #0006;
+    background: #0008;
   }
 
   :global(.mobile-pinned-panel) {
@@ -4035,6 +4012,8 @@
   }
 
   .app-dialog[open]::backdrop {
+    background: #0008;
+    backdrop-filter: blur(4px);
     animation: modal-backdrop-open 240ms ease-out both;
   }
 
@@ -4390,8 +4369,8 @@
     color: var(--foreground);
   }
 
-  .bookmark-row + .bookmark-row {
-    border-top: 1px solid var(--border);
+  .bookmark-row {
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   }
 
   .bookmark-row::before {
